@@ -14,8 +14,7 @@
 ;******************************************************************************
 ;* @attention
 ;*
-;* Copyright (c) 2017-2021 STMicroelectronics.
-;* All rights reserved.
+;* Copyright (c) 2017-2021 STMicroelectronics.///////
 ;*
 ;* This software is licensed under terms that can be found in the LICENSE file
 ;* in the root directory of this software component.
