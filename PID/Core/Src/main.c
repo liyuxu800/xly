@@ -74,12 +74,12 @@ void StartTask03(void const * argument);
 typedef struct
 {
   float kp, ki, kd;            // 三个系数
-  float error, lastError;      // 误差、上次误�????
-  float integral, maxIntegral; // 积分、积分限�????
-  float output, maxOutput;     // 输出、输出限�????
+  float error, lastError;      // 误差、上次误�?????
+  float integral, maxIntegral; // 积分、积分限�?????
+  float output, maxOutput;     // 输出、输出限�?????
 } PID;
 
-// 用于初始化pid参数的函�????
+// 用于初始化pid参数的函�?????
 void PID_Init(PID *pid, float p, float i, float d, float maxI, float maxOut)
 {
   pid->kp = p;
@@ -89,12 +89,12 @@ void PID_Init(PID *pid, float p, float i, float d, float maxI, float maxOut)
   pid->maxOutput = maxOut;
 }
 
-// 进行�????次pid计算
-// 参数�????(pid结构�????,目标�????,反馈�????)，计算结果放在pid结构体的output成员成员�????
+// 进行�?????次pid计算
+// 参数�?????(pid结构�?????,目标�?????,反馈�?????)，计算结果放在pid结构体的output成员成员�?????
 void PID_Calc(PID *pid, float reference, float feedback)
 {
   // 更新数据
-  pid->lastError = pid->error;       // 将旧error存起�????
+  pid->lastError = pid->error;       // 将旧error存起�?????
   pid->error = reference - feedback; // 计算新error
   // 计算微分
   static float dout;
@@ -121,7 +121,7 @@ void PID_Calc(PID *pid, float reference, float feedback)
 }
 
 float emaFilter(float input, float *prev_ema, float alpha) {
-    // 计算新的 EMA 值
+    // 计算新的 EMA �?
     *prev_ema = alpha * input + (1.0f - alpha) * (*prev_ema);
     return *prev_ema;
 }
@@ -154,8 +154,6 @@ void FilterInit(void)
 
 void CAN1_Transmit(uint32_t ID, uint8_t Length, uint8_t *Data)
 {
-  TickType_t xLastWakeTime;
-  xLastWakeTime = xTaskGetTickCount();
   CAN_TxHeaderTypeDef TxMessage = {0};
   uint8_t Tx_Buffer[8] = {0};
   uint32_t box = 0;
@@ -180,7 +178,7 @@ void CAN1_Transmit(uint32_t ID, uint8_t Length, uint8_t *Data)
     // printf("Transmit Success!\r\n");
   }
 
-  vTaskDelayUntil(&xLastWakeTime,1000);
+  //vTaskDelayUntil(&xLastWakeTime,1000);
 }
 
 uint8_t CAN1_ReceiveFlag(void)
@@ -505,7 +503,7 @@ void StartTask02(void const * argument)
   int8_t TeBuffer[3];
 
   float alpha = 0.1;  // 平滑因子
-  float prev_ema = 0;  // 初始 EMA 值设为第一个数据点
+  float prev_ema = 0; // 初始 EMA 值
 
   //	int16_t i = 0;
 
@@ -521,15 +519,15 @@ void StartTask02(void const * argument)
     CAN1_Receive(&RxID, &RxLength, RxData);
     Speed = (RxData[2] << 8) | RxData[3];
 
-    float feedbackValue = Speed; // 这里获取到被控对象的反馈�????
+    float feedbackValue = Speed; // 这里获取到被控对象的反馈值
 
     float ema_result = emaFilter(feedbackValue, &prev_ema, alpha);
     
-    PID_Calc(&mypid, targetValue, feedbackValue); // 进行PID计算，结果在output成员变量�????
+    PID_Calc(&mypid, targetValue, feedbackValue); // 进行PID计算，结果在output成员变量
 
     // printf("Speed = %d\r\n",Speed);
 
-    TxData[0] = (((int16_t)mypid.output * 10) >> 8) & 0xff; // 右移八位是因�????16位数据只有后面八位可以存�????8位的数组
+    TxData[0] = (((int16_t)mypid.output * 10) >> 8) & 0xff; // 右移八位是因为16位数据只有后面八位可以存入8位的数组
     TxData[1] = ((int16_t)mypid.output * 10) & 0xff;
     TeBuffer[0] = TxData[0];
     TeBuffer[1] = TxData[1];
