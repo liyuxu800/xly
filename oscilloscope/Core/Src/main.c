@@ -502,22 +502,11 @@ void StartTask02(void const *argument)
 void StartTask03(void const *argument)
 {
   /* USER CODE BEGIN StartTask03 */
-  uint32_t RxID;
-  uint8_t RxLength;
-  uint8_t RxData[8];
 
   /* Infinite loop */
   for (;;)
   {
-    CAN1_Receive(&RxID, &RxLength, RxData);
-
-    Angel_first = (RxData[0] << 8) | RxData[1];
-    Speed = (RxData[2] << 8) | RxData[3];
-
-    Angel = Angel_first * 360 / 8191;
-
-    printf("Angel = %d\r\n", Angel);
-    printf("Speed = %d\r\n", Speed);
+    
 
     osDelay(1);
   }
