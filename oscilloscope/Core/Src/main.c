@@ -122,49 +122,12 @@ void CAN1_Transmit(uint32_t ID, uint8_t Length, uint8_t *Data)
   }
 }
 
-void CAN2_Transmit(uint32_t ID, uint8_t Length, uint8_t *Data)
-{
-  CAN_TxHeaderTypeDef TxMessage = {0};
-  uint8_t Tx_Buffer[8] = {0};
-  uint32_t box = 0;
-  TxMessage.StdId = ID;
-  TxMessage.ExtId = ID;
-  TxMessage.IDE = CAN_ID_STD;
-  TxMessage.RTR = CAN_RTR_DATA;
-  TxMessage.DLC = Length;
-  TxMessage.TransmitGlobalTime = DISABLE;
-  for (uint8_t i = 0; i < Length; i++)
-  {
-    Tx_Buffer[i] = Data[i];
-  }
-  HAL_StatusTypeDef TransmitMailbox;
-  TransmitMailbox = HAL_CAN_AddTxMessage(&hcan2, &TxMessage, Tx_Buffer, &box);
-  if (TransmitMailbox != HAL_OK)
-  {
-    printf("CAN2 Transmit Error!");
-  }
-  else
-  {
-    printf("CAN2 Transmit Success!\r\n");
-  }
-}
-
 uint8_t CAN1_ReceiveFlag(void)
 {
   if (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) != 0)
   {
     printf("CAN1 has some Message");
     return 1;
-  }
-  return 0;
-}
-
-uint8_t CAN2_ReceiveFlag(void)
-{
-  if (HAL_CAN_GetRxFifoFillLevel(&hcan2, CAN_RX_FIFO0) != 0)
-  {
-    printf("CAN2 has some Message");
-    return 2;
   }
   return 0;
 }
@@ -196,33 +159,6 @@ void CAN1_Receive(uint32_t *ID, uint8_t *Length, uint8_t *Data)
   osDelay(1000);
 }
 
-void CAN2_Receive(uint32_t *ID, uint8_t *Length, uint8_t *Data)
-{
-  //		FilterInit();
-
-  CAN_RxHeaderTypeDef rceStu = {0};
-  uint8_t data[8] = {0};
-  if (CAN2_ReceiveFlag() != 0)
-  {
-    if (HAL_CAN_GetRxMessage(&hcan2, CAN_RX_FIFO0, &rceStu, data) == HAL_OK)
-    {
-      printf("rceStu.DLC: %d\r\n", rceStu.DLC);
-      printf("rceStu.ExtId: %d\r\n", rceStu.ExtId);
-      printf("rceStu.StdId: %x\r\n", rceStu.StdId);
-      printf("rceStu.Timestamp: %d\r\n", rceStu.Timestamp);
-      for (uint8_t i = 0; i < rceStu.DLC; i++)
-      {
-        printf(" %x", data[i]);
-      }
-      printf("\r\n");
-    }
-  }
-  else
-  {
-    printf("No CAN2 INFO!\r\n");
-  }
-  osDelay(1000);
-}
 
 int fputc(int ch, FILE *f)
 {
