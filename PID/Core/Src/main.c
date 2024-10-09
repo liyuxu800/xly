@@ -1,20 +1,20 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2024 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2024 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -35,7 +35,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+float feedbackValue; 
+float targetValue = 111; 
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -52,7 +53,7 @@ osThreadId defaultTaskHandle;
 osThreadId PIDHandle;
 osThreadId myTask03Handle;
 /* USER CODE BEGIN PV */
-
+QueueHandle_t QueueHandler;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -72,151 +73,153 @@ void StartTask03(void const * argument);
 /* USER CODE BEGIN 0 */
 typedef struct
 {
-   	float kp, ki, kd; //三个系数
-    float error, lastError; //误差、上次误差
-    float integral, maxIntegral; //积分、积分限幅
-    float output, maxOutput; //输出、输出限幅
-}PID;
- 
-//用于初始化pid参数的函数
+  float kp, ki, kd;            // 三个系数
+  float error, lastError;      // 误差、上次误�???
+  float integral, maxIntegral; // 积分、积分限�???
+  float output, maxOutput;     // 输出、输出限�???
+} PID;
+
+// 用于初始化pid参数的函�???
 void PID_Init(PID *pid, float p, float i, float d, float maxI, float maxOut)
 {
-    pid->kp = p;
-    pid->ki = i;
-    pid->kd = d;
-    pid->maxIntegral = maxI;
-    pid->maxOutput = maxOut;
+  pid->kp = p;
+  pid->ki = i;
+  pid->kd = d;
+  pid->maxIntegral = maxI;
+  pid->maxOutput = maxOut;
 }
- 
-//进行一次pid计算
-//参数为(pid结构体,目标值,反馈值)，计算结果放在pid结构体的output成员成员中
+
+// 进行�???次pid计算
+// 参数�???(pid结构�???,目标�???,反馈�???)，计算结果放在pid结构体的output成员成员�???
 void PID_Calc(PID *pid, float reference, float feedback)
 {
- 	//更新数据
-    pid->lastError = pid->error; //将旧error存起来
-    pid->error = reference - feedback; //计算新error
-    //计算微分
-    static float dout;
-		dout = (pid->error - pid->lastError) * pid->kd;
-    //计算比例
-    static float pout;
-		pout	= pid->error * pid->kp;
-    //计算积分
-    pid->integral += pid->error;
-	  static float iout;
-		iout = pid->integral* pid->ki;
-    //积分限幅
-    if(pid->integral > pid->maxIntegral) pid->integral = pid->maxIntegral;
-    else if(pid->integral < -pid->maxIntegral) pid->integral = -pid->maxIntegral;
-    //计算输出
-    pid->output = pout + dout + iout;
-    //输出限幅
-    if(pid->output > pid->maxOutput) pid->output =   pid->maxOutput;
-    else if(pid->output < -pid->maxOutput) pid->output = -pid->maxOutput;
+  // 更新数据
+  pid->lastError = pid->error;       // 将旧error存起�???
+  pid->error = reference - feedback; // 计算新error
+  // 计算微分
+  static float dout;
+  dout = (pid->error - pid->lastError) * pid->kd;
+  // 计算比例
+  static float pout;
+  pout = pid->error * pid->kp;
+  // 计算积分
+  pid->integral += pid->error;
+  static float iout;
+  iout = pid->integral * pid->ki;
+  // 积分限幅
+  if (pid->integral > pid->maxIntegral)
+    pid->integral = pid->maxIntegral;
+  else if (pid->integral < -pid->maxIntegral)
+    pid->integral = -pid->maxIntegral;
+  // 计算输出
+  pid->output = pout + dout + iout;
+  // 输出限幅
+  if (pid->output > pid->maxOutput)
+    pid->output = pid->maxOutput;
+  else if (pid->output < -pid->maxOutput)
+    pid->output = -pid->maxOutput;
 }
-
-
 
 void FilterInit(void)
 {
-	CAN_FilterTypeDef CAN_FilterInitStructure;
-	CAN_FilterInitStructure.FilterActivation = ENABLE;
-	CAN_FilterInitStructure.FilterBank = 0;
-	CAN_FilterInitStructure.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-	CAN_FilterInitStructure.FilterIdHigh =0x0000;
-	CAN_FilterInitStructure.FilterIdLow = 0x0000;
-	CAN_FilterInitStructure.FilterMaskIdHigh = 0x0000;
-	CAN_FilterInitStructure.FilterMaskIdLow = 0x0000;
-	CAN_FilterInitStructure.FilterMode = CAN_FILTERMODE_IDMASK;
-	CAN_FilterInitStructure.FilterScale = CAN_FILTERSCALE_32BIT;
-	CAN_FilterInitStructure.SlaveStartFilterBank = 0;
-	HAL_CAN_ConfigFilter(&hcan1,&CAN_FilterInitStructure);
-	
-	 if(HAL_CAN_ConfigFilter(&hcan1, &CAN_FilterInitStructure) != HAL_OK)
-    {
+  CAN_FilterTypeDef CAN_FilterInitStructure;
+  CAN_FilterInitStructure.FilterActivation = ENABLE;
+  CAN_FilterInitStructure.FilterBank = 0;
+  CAN_FilterInitStructure.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+  CAN_FilterInitStructure.FilterIdHigh = 0x0000;
+  CAN_FilterInitStructure.FilterIdLow = 0x0000;
+  CAN_FilterInitStructure.FilterMaskIdHigh = 0x0000;
+  CAN_FilterInitStructure.FilterMaskIdLow = 0x0000;
+  CAN_FilterInitStructure.FilterMode = CAN_FILTERMODE_IDMASK;
+  CAN_FilterInitStructure.FilterScale = CAN_FILTERSCALE_32BIT;
+  CAN_FilterInitStructure.SlaveStartFilterBank = 0;
+  HAL_CAN_ConfigFilter(&hcan1, &CAN_FilterInitStructure);
+
+  if (HAL_CAN_ConfigFilter(&hcan1, &CAN_FilterInitStructure) != HAL_OK)
+  {
     //  printf("CAN1 ConfigFilter Fail!!\r\n");
-    }
-    else
-    {
-     // printf("CAN1 ConfigFilter SUCCESS!!\r\n");
-    }
+  }
+  else
+  {
+    // printf("CAN1 ConfigFilter SUCCESS!!\r\n");
+  }
 }
 
 void CAN1_Transmit(uint32_t ID, uint8_t Length, uint8_t *Data)
 {
-	CAN_TxHeaderTypeDef TxMessage = {0};
-	uint8_t Tx_Buffer[8] = {0};
-	uint32_t box = 0;
-	TxMessage.StdId = ID;
-	TxMessage.ExtId = ID;
-	TxMessage.IDE = CAN_ID_STD;
-	TxMessage.RTR = CAN_RTR_DATA;
-	TxMessage.DLC = Length;
-	TxMessage.TransmitGlobalTime = DISABLE;
-	for (uint8_t i = 0; i < Length; i ++)
-	{
-		Tx_Buffer[i] = Data[i];
-	}
-	HAL_StatusTypeDef TransmitMailbox;
-	TransmitMailbox = HAL_CAN_AddTxMessage(&hcan1,&TxMessage,Tx_Buffer,&box);
-	if(TransmitMailbox != HAL_OK )
-	{
-	//	printf("Transmit Error!");
-	}
-	else
-	{
-		//printf("Transmit Success!\r\n");
-	}
+  CAN_TxHeaderTypeDef TxMessage = {0};
+  uint8_t Tx_Buffer[8] = {0};
+  uint32_t box = 0;
+  TxMessage.StdId = ID;
+  TxMessage.ExtId = ID;
+  TxMessage.IDE = CAN_ID_STD;
+  TxMessage.RTR = CAN_RTR_DATA;
+  TxMessage.DLC = Length;
+  TxMessage.TransmitGlobalTime = DISABLE;
+  for (uint8_t i = 0; i < Length; i++)
+  {
+    Tx_Buffer[i] = Data[i];
+  }
+  HAL_StatusTypeDef TransmitMailbox;
+  TransmitMailbox = HAL_CAN_AddTxMessage(&hcan1, &TxMessage, Tx_Buffer, &box);
+  if (TransmitMailbox != HAL_OK)
+  {
+    //	printf("Transmit Error!");
+  }
+  else
+  {
+    // printf("Transmit Success!\r\n");
+  }
 }
 
 uint8_t CAN1_ReceiveFlag(void)
 {
-	if (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) != 0)
-	{
-	//	printf("CAN1 has some Message");
-		return 1;
-	}
-	return 0;
+  if (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) != 0)
+  {
+    //	printf("CAN1 has some Message");
+    return 1;
+  }
+  return 0;
 }
 
 void CAN1_Receive(uint32_t *ID, uint8_t *Length, uint8_t *Data)
 {
-//		FilterInit();
-	
-		CAN_RxHeaderTypeDef rceStu = {0};
-		if(CAN1_ReceiveFlag() != 0)
-		{
-		if(HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rceStu, Data)==HAL_OK)
-		{
-    //printf("rceStu.DLC: %d\r\n",rceStu.DLC);
-    //printf("rceStu.ExtId: %d\r\n",rceStu.ExtId);
-    //printf("rceStu.StdId: %x\r\n",rceStu.StdId);
-    //printf("rceStu.Timestamp: %d\r\n",rceStu.Timestamp);
-		for(uint8_t i = 0;i<rceStu.DLC;i++)
+  //		FilterInit();
+
+  CAN_RxHeaderTypeDef rceStu = {0};
+  if (CAN1_ReceiveFlag() != 0)
+  {
+    if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rceStu, Data) == HAL_OK)
     {
-     // printf(" %x",Data[i]);
-		}
-     printf("\r\n");
-		}
-		}
-		else
-		{
-			//printf("No CAN1 INFO!\r\n");
-		}
-		osDelay(10);
+      // printf("rceStu.DLC: %d\r\n",rceStu.DLC);
+      // printf("rceStu.ExtId: %d\r\n",rceStu.ExtId);
+      // printf("rceStu.StdId: %x\r\n",rceStu.StdId);
+      // printf("rceStu.Timestamp: %d\r\n",rceStu.Timestamp);
+      for (uint8_t i = 0; i < rceStu.DLC; i++)
+      {
+        // printf(" %x",Data[i]);
+      }
+      printf("\r\n");
+    }
+  }
+  else
+  {
+    // printf("No CAN1 INFO!\r\n");
+  }
+  osDelay(10);
 }
 
-int fputc(int ch, FILE *f)            
+int fputc(int ch, FILE *f)
 {
-	HAL_UART_Transmit(&huart1,(uint8_t *)&ch,1,HAL_MAX_DELAY);
-	return ch;
+  HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
+  return ch;
 }
 
-int fgetc(FILE *f)               
+int fgetc(FILE *f)
 {
-	uint8_t ch;
-	HAL_UART_Receive(&huart1,(uint8_t *)&ch,1,HAL_MAX_DELAY);
-	return ch;
+  uint8_t ch;
+  HAL_UART_Receive(&huart1, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
+  return ch;
 }
 /* USER CODE END 0 */
 
@@ -227,7 +230,11 @@ int fgetc(FILE *f)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+  QueueHandler = xQueueCreate(3, 20);
+  if (QueueHandler == NULL)
+  {
+    printf("error");
+  }
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -276,7 +283,7 @@ int main(void)
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* definition and creation of PID */
-  osThreadDef(PID, StartTask02, osPriorityIdle, 0, 128);
+  osThreadDef(PID, StartTask02, osPriorityNormal, 0, 128);
   PIDHandle = osThreadCreate(osThread(PID), NULL);
 
   /* definition and creation of myTask03 */
@@ -442,18 +449,18 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN Header_StartDefaultTask */
 /**
-  * @brief  Function implementing the defaultTask thread.
-  * @param  argument: Not used
-  * @retval None
-  */
+ * @brief  Function implementing the defaultTask thread.
+ * @param  argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN 5 */
-    vTaskDelete(NULL);
+  vTaskDelete(NULL);
 
   /* Infinite loop */
-  for(;;)
+  for (;;)
   {
     osDelay(1);
   }
@@ -462,76 +469,89 @@ void StartDefaultTask(void const * argument)
 
 /* USER CODE BEGIN Header_StartTask02 */
 /**
-* @brief Function implementing the PID thread.
-* @param argument: Not used
-* @retval None
-*/
+ * @brief Function implementing the PID thread.
+ * @param argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_StartTask02 */
-	PID mypid = {0};
-	float targetValue = 55; //这里获取到目标值
 void StartTask02(void const * argument)
 {
   /* USER CODE BEGIN StartTask02 */
-	
-	HAL_CAN_Start(&hcan1);
-	
-	FilterInit();
-	
+  PID mypid = {0};
+  uint32_t TxID = 0xFFF;
+  uint8_t TxLength = 8;
+  uint8_t TxData[8] = {0};
 
-	PID_Init(&mypid, 5, 0, 0.05, 0.2, 25000);
-		
-//	int16_t i = 0;
-	uint32_t TxID = 0x1FF;
-	uint8_t TxLength = 8;
-	uint8_t TxData[8];
-	
-	uint32_t RxID;
-	uint8_t RxLength;
-	uint8_t RxData[8];
-	
-//	uint16_t Angel_first;
-//	uint16_t Angel;
-	int16_t Speed;
+  uint32_t RxID;
+  uint8_t RxLength = 8;
+  uint8_t RxData[8];
+
+  HAL_CAN_Start(&hcan1);
+
+  FilterInit();
+
+  PID_Init(&mypid, 5, 0, 0.05, 0.2, 25000);
+
+  int8_t TeBuffer[3];
+
+  //	int16_t i = 0;
+
+  //	uint16_t Angel_first;
+  //	uint16_t Angel;
+  int16_t Speed;
   /* Infinite loop */
-  for(;;)
+  for (;;)
   {
-		CAN1_Receive(&RxID, &RxLength, RxData);
-		Speed = (RxData[2] << 8) | RxData[3];
-		
-		float feedbackValue = Speed; //这里获取到被控对象的反馈值
+    CAN1_Receive(&RxID, &RxLength, RxData);
+    Speed = (RxData[2] << 8) | RxData[3];
 
-    PID_Calc(&mypid, targetValue, feedbackValue); //进行PID计算，结果在output成员变量中
-    
-		//printf("Speed = %d\r\n",Speed);
-		
-		TxData[0] = (((int16_t)mypid.output*10) >> 8) & 0xff;				//右移八位是因为16位数据只有后面八位可以存入8位的数组
-		TxData[1] = ((int16_t)mypid.output*10) & 0xff;
-			
-		CAN1_Transmit(TxID,TxLength,TxData);
+    float feedbackValue = Speed; // 这里获取到被控对象的反馈�???
 
-		//printf("Output:%f\n",mypid.output);
-		printf("%f,%f\n",targetValue,feedbackValue);		
-		
-    osDelay(1);  //延时
+    PID_Calc(&mypid, targetValue, feedbackValue); // 进行PID计算，结果在output成员变量�???
+
+    // printf("Speed = %d\r\n",Speed);
+
+    TxData[0] = (((int16_t)mypid.output * 10) >> 8) & 0xff; // 右移八位是因�???16位数据只有后面八位可以存�???8位的数组
+    TxData[1] = ((int16_t)mypid.output * 10) & 0xff;
+    TeBuffer[0] = TxData[0];
+    TeBuffer[1] = TxData[1];
+
+    CAN1_Transmit(TxID, TxLength, TxData);
+
+    xQueueSend(QueueHandler, TeBuffer, 0);
+
+    // printf("Output:%f\n",mypid.output);
+    // printf("%f,%f\n",targetValue,feedbackValue);
+
+    osDelay(1); // 延时
   }
   /* USER CODE END StartTask02 */
 }
 
 /* USER CODE BEGIN Header_StartTask03 */
 /**
-* @brief Function implementing the myTask03 thread.
-* @param argument: Not used
-* @retval None
-*/
+ * @brief Function implementing the myTask03 thread.
+ * @param argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_StartTask03 */
 void StartTask03(void const * argument)
 {
   /* USER CODE BEGIN StartTask03 */
-  vTaskDelete(NULL);
+
   /* Infinite loop */
-  for(;;)
+  for (;;)
   {
-    osDelay(1);
+    uint8_t ReBuffer[3];
+    BaseType_t xStatues;
+
+    xStatues = xQueueReceive(QueueHandler, ReBuffer, portMAX_DELAY);
+    if (xStatues == pdTRUE)
+    {
+      feedbackValue = ReBuffer[0];
+      printf("%f,%f\n", targetValue, feedbackValue);
+    }
+    vTaskDelay(3);
   }
   /* USER CODE END StartTask03 */
 }
