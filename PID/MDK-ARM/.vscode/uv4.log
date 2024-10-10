@@ -1,3 +1,4 @@
 Load "PID\\PID.axf" 
-Erase Done.Programming Done.Verify OK.Application running ...
-Flash Load finished at 22:00:58
+Erase Failed!Cannot access Memory (@ 0xe000edf0, Read, Acc Size: 4 Byte)
+Error: Flash Download failed  -  "Cortex-M4"
+Flash Load finished at 22:56:16
