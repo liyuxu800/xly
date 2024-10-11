@@ -37,6 +37,7 @@
 /* USER CODE BEGIN PD */
 float outerFeedback;
 float outerFeedback_1;
+float outerTarget_first = 0;
 float outerTarget = 0;
 float innerFeedback;
 
@@ -46,9 +47,7 @@ uint8_t RxData[8];
 
 int16_t Speed;
 uint16_t Angel_first;
-uint16_t Angel;
-
-float alpha = 0.05;  // 平滑因子
+int8_t Angel;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -150,13 +149,6 @@ void PID_CascadeCalc(CascadePID *pid, float outerRef, float outerFdb, float inne
 }
  
 CascadePID mypid = {0}; //创建串级PID结构体变量
-
-float emaFilter(float input, float *prev_ema, float alpha)
-{
-  // 计算新的 EMA �?
-  *prev_ema = alpha * input + (1.0f - alpha) * (*prev_ema);
-  return *prev_ema;
-}
 
 void FilterInit(void)
 {
@@ -270,7 +262,6 @@ int fgetc(FILE *f)
   return ch;
 }
 
-// PID mypid = {0};
 /* USER CODE END 0 */
 
 /**
@@ -281,7 +272,7 @@ int main(void)
 
 {
   /* USER CODE BEGIN 1 */
-  QueueHandler = xQueueCreate(10, 4);
+  QueueHandler = xQueueCreate(8, 8);
   if (QueueHandler == NULL)
   {
     printf("error");
@@ -527,7 +518,7 @@ void StartTask02(void const *argument)
   /* USER CODE BEGIN StartTask02 */
   uint32_t TxID = 0x1FF;
   uint8_t TxLength = 8;
-  uint8_t TxData[8] = {0};
+  uint8_t TxData[8] = {0};            //定义参数，目的是发送数据给电机
 
 //   uint32_t RxID;
 //   uint8_t RxLength = 8;
@@ -537,18 +528,11 @@ void StartTask02(void const *argument)
 
   FilterInit();
 
-  PID_Init(&mypid.inner, 10, 0, 0, 0, 1000); //初始化内环参数
-  PID_Init(&mypid.outer, 5, 0, 5, 0, 100); //初始化外环参数
+  PID_Init(&mypid.inner, 3, 1, 0, 1000, 1000); //初始化内环参数
+  PID_Init(&mypid.outer, 3, 1, 0, 1000, 1000); //初始化外环参数
 
+  uint8_t TeBuffer[8];         //定义数组传入队列
 
-  uint8_t TeBuffer[4];
-
-//  float alpha = 0.001;  // 平滑因子
-//  float prev_ema = 0; // 初始 EMA 值
-
-  //	int16_t i = 0;
-
-  //int16_t Speed;
   /* Infinite loop */
   for (;;)
   {
@@ -558,22 +542,20 @@ void StartTask02(void const *argument)
     //HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 
     CAN1_Receive(&RxID, &RxLength, RxData);
+
     Angel_first = (RxData[0] << 8) | RxData[1];
     Speed = (RxData[2] << 8) | RxData[3];
 
-    Angel = Angel_first * 360 / 8191;
+    Angel = Angel_first * 360 / 8191 - 180;
 
     outerFeedback = Angel; // 这里获取到被控对象的反馈值
-
     innerFeedback = Speed;//  获取内环反馈值
 
-    //float ema_result = emaFilter(feedbackValue, &prev_ema, alpha);
-    TeBuffer[0] = Angel;
-   // PID_Calc(&mypid, targetValue, ema_result); // 进行PID计算，结果在output成员变量
+    int8_t *p = &Angel;
+
+    TeBuffer[0] = *p;
 
     PID_CascadeCalc(&mypid, outerTarget, outerFeedback, innerFeedback); //进行PID计算
-
-    // printf("Speed = %d\r\n",Speed);
 
     TxData[0] = (((int16_t)mypid.output) >> 8) & 0xff; // 右移八位是因为16位数据只有后面八位可以存入8位的数组
     TxData[1] = ((int16_t)mypid.output) & 0xff;
@@ -604,7 +586,7 @@ void StartTask03(void const *argument)
   /* Infinite loop */
   for (;;)
   {
-    uint8_t ReBuffer[4];
+    uint8_t ReBuffer[8];
     BaseType_t xStatues;
 		//float speed_;
 
