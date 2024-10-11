@@ -42,6 +42,10 @@ float targetValue = 111;
 uint32_t RxID;
 uint8_t RxLength = 8;
 uint8_t RxData[8];
+
+int16_t Speed;
+
+float alpha = 0.05;  // 平滑因子
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -213,7 +217,7 @@ void CAN1_Receive(uint32_t *ID, uint8_t *Length, uint8_t *Data)
       {
         // printf(" %x",Data[i]);
       }
-      printf("\r\n");
+      //printf("\r\n");
     }
   }
   else
@@ -243,6 +247,8 @@ int fgetc(FILE *f)
   HAL_UART_Receive(&huart1, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
   return ch;
 }
+
+ PID mypid = {0};
 /* USER CODE END 0 */
 
 /**
@@ -252,7 +258,7 @@ int fgetc(FILE *f)
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-  QueueHandler = xQueueCreate(3, 20);
+  QueueHandler = xQueueCreate(10, 4);
   if (QueueHandler == NULL)
   {
     printf("error");
@@ -496,7 +502,6 @@ void StartDefaultTask(void const *argument)
 void StartTask02(void const *argument)
 {
   /* USER CODE BEGIN StartTask02 */
-  PID mypid = {0};
   uint32_t TxID = 0x1FF;
   uint8_t TxLength = 8;
   uint8_t TxData[8] = {0};
@@ -509,18 +514,18 @@ void StartTask02(void const *argument)
 
   FilterInit();
 
-  PID_Init(&mypid, 5, 0, 0, 2000, 25000);
+  PID_Init(&mypid, 30, 8, 5, 2000, 25000);
 
-  uint8_t TeBuffer[3];
+  uint8_t TeBuffer[4];
 
-  float alpha = 0.1;  // 平滑因子
+//  float alpha = 0.001;  // 平滑因子
   float prev_ema = 0; // 初始 EMA 值
 
   //	int16_t i = 0;
 
   //	uint16_t Angel_first;
   //	uint16_t Angel;
-  int16_t Speed;
+  //int16_t Speed;
   /* Infinite loop */
   for (;;)
   {
@@ -532,22 +537,20 @@ void StartTask02(void const *argument)
     CAN1_Receive(&RxID, &RxLength, RxData);
     Speed = (RxData[2] << 8) | RxData[3];
 
-    float feedbackValue = Speed; // 这里获取到被控对象的反馈值
+    feedbackValue = Speed; // 这里获取到被控对象的反馈值
 
     float ema_result = emaFilter(feedbackValue, &prev_ema, alpha);
 
-    PID_Calc(&mypid, targetValue, feedbackValue); // 进行PID计算，结果在output成员变量
+    PID_Calc(&mypid, targetValue, ema_result); // 进行PID计算，结果在output成员变量
 
     // printf("Speed = %d\r\n",Speed);
 
-    TxData[0] = (((int16_t)mypid.output * 10) >> 8) & 0xff; // 右移八位是因为16位数据只有后面八位可以存入8位的数组
-    TxData[1] = ((int16_t)mypid.output * 10) & 0xff;
-    TeBuffer[0] = TxData[0];
-    TeBuffer[1] = TxData[1];
+    TxData[0] = (((int16_t)mypid.output) >> 8) & 0xff; // 右移八位是因为16位数据只有后面八位可以存入8位的数组
+    TxData[1] = ((int16_t)mypid.output) & 0xff;
 
     CAN1_Transmit(TxID, TxLength, TxData);
 
-    xQueueSend(QueueHandler, TeBuffer, 0);
+    xQueueSend(QueueHandler, (uint8_t *)(void *)(&ema_result), 0);
 
     // printf("Output:%f\n",mypid.output);
     // printf("%f,%f\n",targetValue,feedbackValue);
@@ -571,14 +574,15 @@ void StartTask03(void const *argument)
   /* Infinite loop */
   for (;;)
   {
-    uint8_t ReBuffer[3];
+    uint8_t ReBuffer[4];
     BaseType_t xStatues;
+		float speed_;
 
-    xStatues = xQueueReceive(QueueHandler, ReBuffer, portMAX_DELAY);
+    xStatues = xQueueReceive(QueueHandler, (uint8_t *)(void *)&speed_, portMAX_DELAY);
     if (xStatues == pdTRUE)
-    {
-			feedbackValue1 = (ReBuffer[0] << 8)  | ReBuffer[1];
-			printf("%f,%f\n", targetValue, feedbackValue1);
+    {			
+			//feedbackValue1 = (ReBuffer[0] << 8)  | ReBuffer[1];
+			printf("%f,%f,%f\n", targetValue, speed_,mypid.output);
     }
     vTaskDelay(3);
   }
