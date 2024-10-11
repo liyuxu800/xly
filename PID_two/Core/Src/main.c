@@ -37,7 +37,7 @@
 /* USER CODE BEGIN PD */
 float outerFeedback;
 float outerFeedback_1;
-float outerTarget = 0;
+float outerTarget = 10;
 float innerFeedback;
 
 uint32_t RxID;
@@ -270,7 +270,7 @@ int fgetc(FILE *f)
   return ch;
 }
 
- PID mypid = {0};
+// PID mypid = {0};
 /* USER CODE END 0 */
 
 /**
@@ -544,7 +544,7 @@ void StartTask02(void const *argument)
   uint8_t TeBuffer[4];
 
 //  float alpha = 0.001;  // 平滑因子
-  float prev_ema = 0; // 初始 EMA 值
+//  float prev_ema = 0; // 初始 EMA 值
 
   //	int16_t i = 0;
 
@@ -559,10 +559,13 @@ void StartTask02(void const *argument)
 
     CAN1_Receive(&RxID, &RxLength, RxData);
     Angel_first = (RxData[0] << 8) | RxData[1];
+    Speed = (RxData[2] << 8) | RxData[3];
 
-    Angel = Angel_first 8 360 / 8191;
+    Angel = Angel_first * 360 / 8191;
 
     outerFeedback = Angel; // 这里获取到被控对象的反馈值
+
+    innerFeedback = Speed;//  获取内环反馈值
 
     //float ema_result = emaFilter(feedbackValue, &prev_ema, alpha);
 
@@ -577,7 +580,7 @@ void StartTask02(void const *argument)
 
     CAN1_Transmit(TxID, TxLength, TxData);
 
-    xQueueSend(QueueHandler, (uint8_t *)(void *)(&ema_result), 0);
+    xQueueSend(QueueHandler, &Angel, 0);
 
     // printf("Output:%f\n",mypid.output);
     // printf("%f,%f\n",targetValue,feedbackValue);
@@ -605,11 +608,11 @@ void StartTask03(void const *argument)
     BaseType_t xStatues;
 		float speed_;
 
-    xStatues = xQueueReceive(QueueHandler, (uint8_t *)(void *)&speed_, portMAX_DELAY);
+    xStatues = xQueueReceive(QueueHandler, (uint8_t *)(void *)&Angel, portMAX_DELAY);
     if (xStatues == pdTRUE)
     {			
 			//feedbackValue1 = (ReBuffer[0] << 8)  | ReBuffer[1];
-			printf("%f,%f,%f\n", targetValue, speed_,mypid.output);
+			printf("%f,%f\n", outerTarget, (float)Angel);  
     }
     vTaskDelay(3);
   }
