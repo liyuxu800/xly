@@ -256,6 +256,7 @@ int fgetc(FILE *f)
  * @retval int
  */
 int main(void)
+
 {
   /* USER CODE BEGIN 1 */
   QueueHandler = xQueueCreate(10, 4);
@@ -514,7 +515,7 @@ void StartTask02(void const *argument)
 
   FilterInit();
 
-  PID_Init(&mypid, 30, 8, 5, 2000, 25000);
+  PID_Init(&mypid, 3, 6, 5, 2500, 15000);
 
   uint8_t TeBuffer[4];
 

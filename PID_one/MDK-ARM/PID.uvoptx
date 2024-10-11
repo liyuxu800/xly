@@ -235,6 +235,11 @@
           <WinNumber>1</WinNumber>
           <ItemText>alpha</ItemText>
         </Ww>
+        <Ww>
+          <count>16</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>\\PID\../Core/Src/main.c\targetValue</ItemText>
+        </Ww>
       </WatchWindow1>
       <WatchWindow2>
         <Ww>
