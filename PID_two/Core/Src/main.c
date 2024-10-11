@@ -37,7 +37,7 @@
 /* USER CODE BEGIN PD */
 float outerFeedback;
 float outerFeedback_1;
-float outerTarget = 10;
+float outerTarget = 0;
 float innerFeedback;
 
 uint32_t RxID;
@@ -568,7 +568,7 @@ void StartTask02(void const *argument)
     innerFeedback = Speed;//  获取内环反馈值
 
     //float ema_result = emaFilter(feedbackValue, &prev_ema, alpha);
-
+    TeBuffer[0] = Angel;
    // PID_Calc(&mypid, targetValue, ema_result); // 进行PID计算，结果在output成员变量
 
     PID_CascadeCalc(&mypid, outerTarget, outerFeedback, innerFeedback); //进行PID计算
@@ -580,7 +580,7 @@ void StartTask02(void const *argument)
 
     CAN1_Transmit(TxID, TxLength, TxData);
 
-    xQueueSend(QueueHandler, &Angel, 0);
+    xQueueSend(QueueHandler, TeBuffer, 0);
 
     // printf("Output:%f\n",mypid.output);
     // printf("%f,%f\n",targetValue,feedbackValue);
@@ -606,13 +606,13 @@ void StartTask03(void const *argument)
   {
     uint8_t ReBuffer[4];
     BaseType_t xStatues;
-		float speed_;
+		//float speed_;
 
-    xStatues = xQueueReceive(QueueHandler, (uint8_t *)(void *)&Angel, portMAX_DELAY);
+    xStatues = xQueueReceive(QueueHandler, ReBuffer, portMAX_DELAY);
     if (xStatues == pdTRUE)
     {			
 			//feedbackValue1 = (ReBuffer[0] << 8)  | ReBuffer[1];
-			printf("%f,%f\n", outerTarget, (float)Angel);  
+			printf("%f,%f\n", outerTarget, (float)ReBuffer[0]);  
     }
     vTaskDelay(3);
   }
