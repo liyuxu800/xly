@@ -35,15 +35,18 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-float feedbackValue;
-float feedbackValue1;
-float targetValue = 111;
+float outerFeedback;
+float outerFeedback_1;
+float outerTarget = 0;
+float innerFeedback;
 
 uint32_t RxID;
 uint8_t RxLength = 8;
 uint8_t RxData[8];
 
 int16_t Speed;
+uint16_t Angel_first;
+uint16_t Angel;
 
 float alpha = 0.05;  // 平滑因子
 /* USER CODE END PD */
@@ -128,6 +131,25 @@ void PID_Calc(PID *pid, float reference, float feedback)
   else if (pid->output < -pid->maxOutput)
     pid->output = -pid->maxOutput;
 }
+
+//串级PID的结构体，包含两个单级PID
+typedef struct
+{
+    PID inner; //内环
+    PID outer; //外环
+    float output; //串级输出，等于inner.output
+}CascadePID;
+ 
+//串级PID的计算函数
+//参数(PID结构体,外环目标值,外环反馈值,内环反馈值)
+void PID_CascadeCalc(CascadePID *pid, float outerRef, float outerFdb, float innerFdb)
+{
+    PID_Calc(&pid->outer, outerRef, outerFdb); //计算外环
+    PID_Calc(&pid->inner, pid->outer.output, innerFdb); //计算内环
+    pid->output = pid->inner.output; //内环输出就是串级PID的输出
+}
+ 
+CascadePID mypid = {0}; //创建串级PID结构体变量
 
 float emaFilter(float input, float *prev_ema, float alpha)
 {
@@ -515,7 +537,9 @@ void StartTask02(void const *argument)
 
   FilterInit();
 
-  PID_Init(&mypid, 3, 6, 5, 2500, 15000);
+  PID_Init(&mypid.inner, 10, 0, 0, 0, 1000); //初始化内环参数
+  PID_Init(&mypid.outer, 5, 0, 5, 0, 100); //初始化外环参数
+
 
   uint8_t TeBuffer[4];
 
@@ -524,8 +548,6 @@ void StartTask02(void const *argument)
 
   //	int16_t i = 0;
 
-  //	uint16_t Angel_first;
-  //	uint16_t Angel;
   //int16_t Speed;
   /* Infinite loop */
   for (;;)
@@ -536,13 +558,17 @@ void StartTask02(void const *argument)
     //HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 
     CAN1_Receive(&RxID, &RxLength, RxData);
-    Speed = (RxData[2] << 8) | RxData[3];
+    Angel_first = (RxData[0] << 8) | RxData[1];
 
-    feedbackValue = Speed; // 这里获取到被控对象的反馈值
+    Angel = Angel_first 8 360 / 8191;
 
-    float ema_result = emaFilter(feedbackValue, &prev_ema, alpha);
+    outerFeedback = Angel; // 这里获取到被控对象的反馈值
 
-    PID_Calc(&mypid, targetValue, ema_result); // 进行PID计算，结果在output成员变量
+    //float ema_result = emaFilter(feedbackValue, &prev_ema, alpha);
+
+   // PID_Calc(&mypid, targetValue, ema_result); // 进行PID计算，结果在output成员变量
+
+    PID_CascadeCalc(&mypid, outerTarget, outerFeedback, innerFeedback); //进行PID计算
 
     // printf("Speed = %d\r\n",Speed);
 
