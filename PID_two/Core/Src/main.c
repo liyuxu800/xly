@@ -270,6 +270,7 @@ int fgetc(FILE *f)
  */
 int main(void)
 
+
 {
   /* USER CODE BEGIN 1 */
   QueueHandler = xQueueCreate(8, 8);
@@ -528,8 +529,8 @@ void StartTask02(void const *argument)
 
   FilterInit();
 
-  PID_Init(&mypid.inner, 3, 1, 0, 1000, 1000); //初始化内环参数
-  PID_Init(&mypid.outer, 3, 1, 0, 1000, 1000); //初始化外环参数
+  PID_Init(&mypid.inner, 0, 0, 0, 1000, 1000); //初始化内环参数
+  PID_Init(&mypid.outer, 0, 0, 0, 1000, 1000); //初始化外环参数
 
   uint8_t TeBuffer[8];         //定义数组传入队列
 
@@ -546,7 +547,7 @@ void StartTask02(void const *argument)
     Angel_first = (RxData[0] << 8) | RxData[1];
     Speed = (RxData[2] << 8) | RxData[3];
 
-    Angel = Angel_first * 360 / 8191 - 180;
+    Angel = Angel_first * 360 / 8191 ;
 
     outerFeedback = Angel; // 这里获取到被控对象的反馈值
     innerFeedback = Speed;//  获取内环反馈值
@@ -596,7 +597,7 @@ void StartTask03(void const *argument)
 			//feedbackValue1 = (ReBuffer[0] << 8)  | ReBuffer[1];
 			printf("%f,%f\n", outerTarget, (float)ReBuffer[0]);  
     }
-    vTaskDelay(3);
+    vTaskDelay(5);
   }
   /* USER CODE END StartTask03 */
 }
