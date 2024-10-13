@@ -193,52 +193,57 @@
         <Ww>
           <count>7</count>
           <WinNumber>1</WinNumber>
-          <ItemText>targetValue</ItemText>
+          <ItemText>dout</ItemText>
         </Ww>
         <Ww>
           <count>8</count>
           <WinNumber>1</WinNumber>
-          <ItemText>dout</ItemText>
+          <ItemText>pout</ItemText>
         </Ww>
         <Ww>
           <count>9</count>
           <WinNumber>1</WinNumber>
-          <ItemText>pout</ItemText>
+          <ItemText>iout</ItemText>
         </Ww>
         <Ww>
           <count>10</count>
           <WinNumber>1</WinNumber>
-          <ItemText>iout</ItemText>
+          <ItemText>outerTarget</ItemText>
         </Ww>
         <Ww>
           <count>11</count>
           <WinNumber>1</WinNumber>
-          <ItemText>feedbackValue</ItemText>
+          <ItemText>outerFeedback</ItemText>
         </Ww>
         <Ww>
           <count>12</count>
           <WinNumber>1</WinNumber>
-          <ItemText>mypid</ItemText>
+          <ItemText>innerFeedback</ItemText>
         </Ww>
         <Ww>
           <count>13</count>
           <WinNumber>1</WinNumber>
-          <ItemText>ema_result</ItemText>
+          <ItemText>\\PID\../Core/Src/main.c\mypid.inner.maxOutput</ItemText>
         </Ww>
         <Ww>
           <count>14</count>
           <WinNumber>1</WinNumber>
-          <ItemText>ReBuffer[0]</ItemText>
+          <ItemText>outerFeedback</ItemText>
         </Ww>
         <Ww>
           <count>15</count>
           <WinNumber>1</WinNumber>
-          <ItemText>alpha</ItemText>
+          <ItemText>Angle</ItemText>
         </Ww>
         <Ww>
           <count>16</count>
           <WinNumber>1</WinNumber>
-          <ItemText>\\PID\../Core/Src/main.c\targetValue</ItemText>
+          <ItemText>angle_update,0x0A</ItemText>
+        </Ww>
+        <Ww>
+          <count>17</count>
+          <WinNumber>1</WinNumber>
+          <ItemText>\\PID\../Core/Src/main.c\angle_update</ItemText>
         </Ww>
       </WatchWindow1>
       <WatchWindow2>

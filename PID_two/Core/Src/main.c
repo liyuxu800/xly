@@ -1,20 +1,20 @@
 /* USER CODE BEGIN Header */
 /**
- ******************************************************************************
- * @file           : main.c
- * @brief          : Main program body
- ******************************************************************************
- * @attention
- *
- * Copyright (c) 2024 STMicroelectronics.
- * All rights reserved.
- *
- * This software is licensed under terms that can be found in the LICENSE file
- * in the root directory of this software component.
- * If no LICENSE file comes with this software, it is provided AS-IS.
- *
- ******************************************************************************
- */
+  ******************************************************************************
+  * @file           : main.c
+  * @brief          : Main program body
+  ******************************************************************************
+  * @attention
+  *
+  * Copyright (c) 2024 STMicroelectronics.
+  * All rights reserved.
+  *
+  * This software is licensed under terms that can be found in the LICENSE file
+  * in the root directory of this software component.
+  * If no LICENSE file comes with this software, it is provided AS-IS.
+  *
+  ******************************************************************************
+  */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -35,24 +35,17 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-float outerFeedback;
-float outerFeedback_1;
-float outerTarget_first = 0;
-float outerTarget = 0;
-float innerFeedback;
 
-uint32_t RxID;
-uint8_t RxLength = 8;
-uint8_t RxData[8];
-
-int16_t Speed;
-uint16_t Angel_first;
-int8_t Angel;
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
+float targetValue =111;
+float outerTarget = 0;
+float outerFeedback = 0;
+float innerFeedback = 0;
 
+QueueHandle_t QueueHandler;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -64,7 +57,7 @@ osThreadId defaultTaskHandle;
 osThreadId PIDHandle;
 osThreadId myTask03Handle;
 /* USER CODE BEGIN PV */
-QueueHandle_t QueueHandler;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -72,9 +65,9 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_CAN1_Init(void);
 static void MX_USART1_UART_Init(void);
-void StartDefaultTask(void const *argument);
-void StartTask02(void const *argument);
-void StartTask03(void const *argument);
+void StartDefaultTask(void const * argument);
+void StartTask02(void const * argument);
+void StartTask03(void const * argument);
 
 /* USER CODE BEGIN PFP */
 
@@ -84,52 +77,81 @@ void StartTask03(void const *argument);
 /* USER CODE BEGIN 0 */
 typedef struct
 {
-  float kp, ki, kd;            // 三个系数
-  float error, lastError;      // 误差、上次误�?????
-  float integral, maxIntegral; // 积分、积分限�?????
-  float output, maxOutput;     // 输出、输出限�?????
-} PID;
+  uint16_t encoder,last_encoder;
+  int16_t round;
+  int16_t finally_angle;
+}AngleStructDef;
+AngleStructDef angle_update = {0};
 
-// 用于初始化pid参数的函�?????
-void PID_Init(PID *pid, float p, float i, float d, float maxI, float maxOut)
+void updata_angle(AngleStructDef *__angle,uint16_t new_encoder)
 {
-  pid->kp = p;
-  pid->ki = i;
-  pid->kd = d;
-  pid->maxIntegral = maxI;
-  pid->maxOutput = maxOut;
+  __angle->last_encoder = __angle->encoder;
+  __angle->encoder = new_encoder;
+  float resulte =  __angle->encoder - __angle->last_encoder;
+  if(resulte < -4096)
+  {
+    __angle -> round ++;
+  }
+  else if(resulte >4096)
+  {
+     __angle -> round --;
+  }
+  __angle->finally_angle = __angle->round *360;
 }
 
-// 进行�?????次pid计算
-// 参数�?????(pid结构�?????,目标�?????,反馈�?????)，计算结果放在pid结构体的output成员成员�?????
+typedef struct
+{
+	float data[3];
+}DataStructDef;
+DataStructDef tx_data;
+
+typedef struct
+{
+   	float kp, ki, kd; //三个系数
+    float error, lastError; //误差、上次误�?
+    float integral, maxIntegral; //积分、积分限�?
+    float output, maxOutput; //输出、输出限�?
+}PID;
+
+//PID mypid = {0};
+
+//用于初始化pid参数的函�?
+void PID_Init(PID *pid, 	float p, float i, float d, float maxI, float maxOut)
+{
+    pid->kp = p;
+    pid->ki = i;
+    pid->kd = d;
+    pid->maxIntegral = maxI;
+    pid->maxOutput = maxOut;
+}
+ 
+//进行�?次pid计算
+//参数�?(pid结构�?,目标�?,反馈�?)，计算结果放在pid结构体的output成员成员�?
 void PID_Calc(PID *pid, float reference, float feedback)
 {
-  // 更新数据
-  pid->lastError = pid->error;       // 将旧error存起�?????
-  pid->error = reference - feedback; // 计算新error
-  // 计算微分
-  static float dout;
-  dout = (pid->error - pid->lastError) * pid->kd;
-  // 计算比例
-  static float pout;
-  pout = pid->error * pid->kp;
-  // 计算积分
-  pid->integral += pid->error;
-  static float iout;
-  iout = pid->integral * pid->ki;
-  // 积分限幅
-  if (pid->integral > pid->maxIntegral)
-    pid->integral = pid->maxIntegral;
-  else if (pid->integral < -pid->maxIntegral)
-    pid->integral = -pid->maxIntegral;
-  // 计算输出
-  pid->output = pout + dout + iout;
-  // 输出限幅
-  if (pid->output > pid->maxOutput)
-    pid->output = pid->maxOutput;
-  else if (pid->output < -pid->maxOutput)
-    pid->output = -pid->maxOutput;
+ 	//更新数据
+    pid->lastError = pid->error; //将旧error存起�?
+    pid->error = reference - feedback; //计算新error
+    //计算微分
+    static float dout;
+		dout = (pid->error - pid->lastError) * pid->kd;
+    //计算比例
+    static float pout;
+		pout	= pid->error * pid->kp;
+    //计算积分
+    pid->integral += pid->error;
+	  static float iout;
+		iout = pid->integral* pid->ki;
+    //积分限幅
+    if(pid->integral > pid->maxIntegral) pid->integral = pid->maxIntegral;
+    else if(pid->integral < -pid->maxIntegral) pid->integral = -pid->maxIntegral;
+    //计算输出
+    pid->output = pout + dout + iout;
+    //输出限幅
+    if(pid->output > pid->maxOutput) pid->output =   pid->maxOutput;
+    else if(pid->output < -pid->maxOutput) pid->output = -pid->maxOutput;
 }
+
 
 //串级PID的结构体，包含两个单级PID
 typedef struct
@@ -139,145 +161,127 @@ typedef struct
     float output; //串级输出，等于inner.output
 }CascadePID;
  
-//串级PID的计算函数
-//参数(PID结构体,外环目标值,外环反馈值,内环反馈值)
+//串级PID的计算函�?
+//参数(PID结构�?,外环目标�?,外环反馈�?,内环反馈�?)
 void PID_CascadeCalc(CascadePID *pid, float outerRef, float outerFdb, float innerFdb)
 {
     PID_Calc(&pid->outer, outerRef, outerFdb); //计算外环
     PID_Calc(&pid->inner, pid->outer.output, innerFdb); //计算内环
-    pid->output = pid->inner.output; //内环输出就是串级PID的输出
+    pid->output = pid->inner.output; //内环输出就是串级PID的输�?
 }
  
-CascadePID mypid = {0}; //创建串级PID结构体变量
+CascadePID mypid = {0}; //创建串级PID结构体变�?
 
 void FilterInit(void)
 {
-  CAN_FilterTypeDef CAN_FilterInitStructure;
-  CAN_FilterInitStructure.FilterActivation = ENABLE;
-  CAN_FilterInitStructure.FilterBank = 0;
-  CAN_FilterInitStructure.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-  CAN_FilterInitStructure.FilterIdHigh = 0x0000;
-  CAN_FilterInitStructure.FilterIdLow = 0x0000;
-  CAN_FilterInitStructure.FilterMaskIdHigh = 0x0000;
-  CAN_FilterInitStructure.FilterMaskIdLow = 0x0000;
-  CAN_FilterInitStructure.FilterMode = CAN_FILTERMODE_IDMASK;
-  CAN_FilterInitStructure.FilterScale = CAN_FILTERSCALE_32BIT;
-  CAN_FilterInitStructure.SlaveStartFilterBank = 0;
-  HAL_CAN_ConfigFilter(&hcan1, &CAN_FilterInitStructure);
-
-  if (HAL_CAN_ConfigFilter(&hcan1, &CAN_FilterInitStructure) != HAL_OK)
-  {
+	CAN_FilterTypeDef CAN_FilterInitStructure;
+	CAN_FilterInitStructure.FilterActivation = ENABLE;
+	CAN_FilterInitStructure.FilterBank = 0;
+	CAN_FilterInitStructure.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+	CAN_FilterInitStructure.FilterIdHigh =0x0000;
+	CAN_FilterInitStructure.FilterIdLow = 0x0000;
+	CAN_FilterInitStructure.FilterMaskIdHigh = 0x0000;
+	CAN_FilterInitStructure.FilterMaskIdLow = 0x0000;
+	CAN_FilterInitStructure.FilterMode = CAN_FILTERMODE_IDMASK;
+	CAN_FilterInitStructure.FilterScale = CAN_FILTERSCALE_32BIT;
+	CAN_FilterInitStructure.SlaveStartFilterBank = 0;
+	HAL_CAN_ConfigFilter(&hcan1,&CAN_FilterInitStructure);
+	
+	 if(HAL_CAN_ConfigFilter(&hcan1, &CAN_FilterInitStructure) != HAL_OK)
+    {
     //  printf("CAN1 ConfigFilter Fail!!\r\n");
-  }
-  else
-  {
-    // printf("CAN1 ConfigFilter SUCCESS!!\r\n");
-  }
+    }
+    else
+    {
+     // printf("CAN1 ConfigFilter SUCCESS!!\r\n");
+    }
 }
 
 void CAN1_Transmit(uint32_t ID, uint8_t Length, uint8_t *Data)
 {
-  CAN_TxHeaderTypeDef TxMessage = {0};
-  uint8_t Tx_Buffer[8] = {0};
-  uint32_t box = 0;
-  TxMessage.StdId = ID;
-  TxMessage.ExtId = ID;
-  TxMessage.IDE = CAN_ID_STD;
-  TxMessage.RTR = CAN_RTR_DATA;
-  TxMessage.DLC = Length;
-  TxMessage.TransmitGlobalTime = DISABLE;
-  for (uint8_t i = 0; i < Length; i++)
-  {
-    Tx_Buffer[i] = Data[i];
-  }
-  HAL_StatusTypeDef TransmitMailbox;
-  TransmitMailbox = HAL_CAN_AddTxMessage(&hcan1, &TxMessage, Tx_Buffer, &box);
-  if (TransmitMailbox != HAL_OK)
-  {
-    //	printf("Transmit Error!");
-  }
-  else
-  {
-    // printf("Transmit Success!\r\n");
-  }
-
-  // vTaskDelayUntil(&xLastWakeTime,1000);
+	CAN_TxHeaderTypeDef TxMessage = {0};
+	uint8_t Tx_Buffer[8] = {0};
+	uint32_t box = 0;
+	TxMessage.StdId = ID;
+	TxMessage.ExtId = ID;
+	TxMessage.IDE = CAN_ID_STD;
+	TxMessage.RTR = CAN_RTR_DATA;
+	TxMessage.DLC = Length;
+	TxMessage.TransmitGlobalTime = DISABLE;
+	for (uint8_t i = 0; i < Length; i ++)
+	{
+		Tx_Buffer[i] = Data[i];
+	}
+	HAL_StatusTypeDef TransmitMailbox;
+	TransmitMailbox = HAL_CAN_AddTxMessage(&hcan1,&TxMessage,Tx_Buffer,&box);
+	if(TransmitMailbox != HAL_OK )
+	{
+	//	printf("Transmit Error!");
+	}
+	else
+	{
+		//printf("Transmit Success!\r\n");
+	}
 }
 
 uint8_t CAN1_ReceiveFlag(void)
 {
-  if (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) != 0)
-  {
-    //	printf("CAN1 has some Message");
-    return 1;
-  }
-  return 0;
+	if (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) != 0)
+	{
+	//	printf("CAN1 has some Message");
+		return 1;
+	}
+	return 0;
 }
 
 void CAN1_Receive(uint32_t *ID, uint8_t *Length, uint8_t *Data)
 {
-  //		FilterInit();
-
-  CAN_RxHeaderTypeDef rceStu = {0};
-  if (CAN1_ReceiveFlag() != 0)
-  {
-    if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rceStu, Data) == HAL_OK)
+//		FilterInit();
+	
+		CAN_RxHeaderTypeDef rceStu = {0};
+		if(CAN1_ReceiveFlag() != 0)
+		{
+		if(HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rceStu, Data)==HAL_OK)
+		{
+    //printf("rceStu.DLC: %d\r\n",rceStu.DLC);
+    //printf("rceStu.ExtId: %d\r\n",rceStu.ExtId);
+    //printf("rceStu.StdId: %x\r\n",rceStu.StdId);
+    //printf("rceStu.Timestamp: %d\r\n",rceStu.Timestamp);
+		for(uint8_t i = 0;i<rceStu.DLC;i++)
     {
-      // printf("rceStu.DLC: %d\r\n",rceStu.DLC);
-      // printf("rceStu.ExtId: %d\r\n",rceStu.ExtId);
-      // printf("rceStu.StdId: %x\r\n",rceStu.StdId);
-      // printf("rceStu.Timestamp: %d\r\n",rceStu.Timestamp);
-      for (uint8_t i = 0; i < rceStu.DLC; i++)
-      {
-        // printf(" %x",Data[i]);
-      }
-      //printf("\r\n");
-    }
-  }
-  else
-  {
-    // printf("No CAN1 INFO!\r\n");
-  }
+     // printf(" %x",Data[i]);
+		}
+     //printf("\r\n");
+		}
+		}
+		else
+		{
+			//printf("No CAN1 INFO!\r\n");
+		}
 }
 
-//void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
-//{
- // if(hcan->Instance == CAN1)
- // {
-//   CAN1_Receive(&RxID, &RxLength, RxData);
-//  }
- 
-//}
-
-int fputc(int ch, FILE *f)
+int fputc(int ch, FILE *f)            
 {
-  HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
-  return ch;
-}
- 
-int fgetc(FILE *f)
-{
-  uint8_t ch;
-  HAL_UART_Receive(&huart1, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
-  return ch;
+	HAL_UART_Transmit(&huart1,(uint8_t *)&ch,1,HAL_MAX_DELAY);
+	return ch;
 }
 
+int fgetc(FILE *f)               
+{
+	uint8_t ch;
+	HAL_UART_Receive(&huart1,(uint8_t *)&ch,1,HAL_MAX_DELAY);
+	return ch;
+}
 /* USER CODE END 0 */
 
 /**
- * @brief  The application entry point.
- * @retval int
- */
+  * @brief  The application entry point.
+  * @retval int
+  */
 int main(void)
-
-
 {
   /* USER CODE BEGIN 1 */
-  QueueHandler = xQueueCreate(8, 8);
-  if (QueueHandler == NULL)
-  {
-    printf("error");
-  }
+QueueHandler = xQueueCreate(10, sizeof(DataStructDef));
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -352,22 +356,22 @@ int main(void)
 }
 
 /**
- * @brief System Clock Configuration
- * @retval None
- */
+  * @brief System Clock Configuration
+  * @retval None
+  */
 void SystemClock_Config(void)
 {
   RCC_OscInitTypeDef RCC_OscInitStruct = {0};
   RCC_ClkInitTypeDef RCC_ClkInitStruct = {0};
 
   /** Configure the main internal regulator output voltage
-   */
+  */
   __HAL_RCC_PWR_CLK_ENABLE();
   __HAL_PWR_VOLTAGESCALING_CONFIG(PWR_REGULATOR_VOLTAGE_SCALE1);
 
   /** Initializes the RCC Oscillators according to the specified parameters
-   * in the RCC_OscInitTypeDef structure.
-   */
+  * in the RCC_OscInitTypeDef structure.
+  */
   RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
@@ -383,8 +387,9 @@ void SystemClock_Config(void)
   }
 
   /** Initializes the CPU, AHB and APB buses clocks
-   */
-  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK | RCC_CLOCKTYPE_SYSCLK | RCC_CLOCKTYPE_PCLK1 | RCC_CLOCKTYPE_PCLK2;
+  */
+  RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
+                              |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
   RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV4;
@@ -397,10 +402,10 @@ void SystemClock_Config(void)
 }
 
 /**
- * @brief CAN1 Initialization Function
- * @param None
- * @retval None
- */
+  * @brief CAN1 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_CAN1_Init(void)
 {
 
@@ -430,13 +435,14 @@ static void MX_CAN1_Init(void)
   /* USER CODE BEGIN CAN1_Init 2 */
 
   /* USER CODE END CAN1_Init 2 */
+
 }
 
 /**
- * @brief USART1 Initialization Function
- * @param None
- * @retval None
- */
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_USART1_UART_Init(void)
 {
 
@@ -462,25 +468,26 @@ static void MX_USART1_UART_Init(void)
   /* USER CODE BEGIN USART1_Init 2 */
 
   /* USER CODE END USART1_Init 2 */
+
 }
 
 /**
- * @brief GPIO Initialization Function
- * @param None
- * @retval None
- */
+  * @brief GPIO Initialization Function
+  * @param None
+  * @retval None
+  */
 static void MX_GPIO_Init(void)
 {
-  /* USER CODE BEGIN MX_GPIO_Init_1 */
-  /* USER CODE END MX_GPIO_Init_1 */
+/* USER CODE BEGIN MX_GPIO_Init_1 */
+/* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
-  /* USER CODE BEGIN MX_GPIO_Init_2 */
-  /* USER CODE END MX_GPIO_Init_2 */
+/* USER CODE BEGIN MX_GPIO_Init_2 */
+/* USER CODE END MX_GPIO_Init_2 */
 }
 
 /* USER CODE BEGIN 4 */
@@ -489,18 +496,18 @@ static void MX_GPIO_Init(void)
 
 /* USER CODE BEGIN Header_StartDefaultTask */
 /**
- * @brief  Function implementing the defaultTask thread.
- * @param  argument: Not used
- * @retval None
- */
+  * @brief  Function implementing the defaultTask thread.
+  * @param  argument: Not used
+  * @retval None
+  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void const *argument)
+void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN 5 */
-  vTaskDelete(NULL);
+    vTaskDelete(NULL);
 
   /* Infinite loop */
-  for (;;)
+  for(;;)
   {
     osDelay(1);
   }
@@ -509,64 +516,71 @@ void StartDefaultTask(void const *argument)
 
 /* USER CODE BEGIN Header_StartTask02 */
 /**
- * @brief Function implementing the PID thread.
- * @param argument: Not used
- * @retval None
- */
+* @brief Function implementing the PID thread.
+* @param argument: Not used
+* @retval None
+*/
 /* USER CODE END Header_StartTask02 */
-void StartTask02(void const *argument)
+void StartTask02(void const * argument)
 {
   /* USER CODE BEGIN StartTask02 */
-  uint32_t TxID = 0x1FF;
-  uint8_t TxLength = 8;
-  uint8_t TxData[8] = {0};            //定义参数，目的是发送数据给电机
+  TickType_t xLastWakeTime;
+  xLastWakeTime = xTaskGetTickCount();	
 
-//   uint32_t RxID;
-//   uint8_t RxLength = 8;
-//   uint8_t RxData[8];
+	HAL_CAN_Start(&hcan1);
+	
+	FilterInit();
 
-  HAL_CAN_Start(&hcan1);
+	PID_Init(&mypid.inner, 30, 0, 0, 0, 25000); //初始化内环参�?
+  PID_Init(&mypid.outer, 70, 0, 0, 0, 25000); //初始化外环参�?
 
-  FilterInit();
+		
+//	int16_t i = 0;
+	uint32_t TxID = 0x1FF;
+	uint8_t TxLength = 8;
+	uint8_t TxData[8];
+	
+	uint32_t RxID;
+	uint8_t RxLength;
+	uint8_t RxData[8];
+	
+	uint16_t encoder;
+	static float Angle;
+	int16_t Speed;
 
-  PID_Init(&mypid.inner, 0, 0, 0, 1000, 1000); //初始化内环参数
-  PID_Init(&mypid.outer, 0, 0, 0, 1000, 1000); //初始化外环参数
-
-  uint8_t TeBuffer[8];         //定义数组传入队列
-
+//  uint8_t TeBuffer[8];
   /* Infinite loop */
-  for (;;)
+  for(;;)
   {
-    TickType_t xLastWakeTime;
-    xLastWakeTime = xTaskGetTickCount();
+		CAN1_Receive(&RxID, &RxLength, RxData);
+		encoder = (RxData[0] << 8) | RxData[1];
+		Angle = encoder * 360.0f / 8192.0f;
+		Speed = (RxData[2] << 8) | RxData[3];
 
-    //HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+    updata_angle(&angle_update,encoder);
 
-    CAN1_Receive(&RxID, &RxLength, RxData);
+    outerFeedback = Angle + (float)angle_update.finally_angle; //获取外环反馈�?
 
-    Angel_first = (RxData[0] << 8) | RxData[1];
-    Speed = (RxData[2] << 8) | RxData[3];
-
-    Angel = Angel_first * 360 / 8191 ;
-
-    outerFeedback = Angel; // 这里获取到被控对象的反馈值
-    innerFeedback = Speed;//  获取内环反馈值
-
-    int8_t *p = &Angel;
-
-    TeBuffer[0] = *p;
-
+//    outerTarget = ; //获取外环目标�?
+   // outerFeedback = Angle; //获取外环反馈�?
+    innerFeedback = Speed; //获取内环反馈�?
     PID_CascadeCalc(&mypid, outerTarget, outerFeedback, innerFeedback); //进行PID计算
+    
+		//printf("Speed = %d\r\n",Speed);
+		
+		TxData[0] = (((int16_t)mypid.output) >> 8) & 0xff;				//右移八位是因�?16位数据只有后面八位可以存�?8位的数组
+		TxData[1] = ((int16_t)mypid.output) & 0xff;
+		
+   //0 TeBuffer[0] = Angle;
 
-    TxData[0] = (((int16_t)mypid.output) >> 8) & 0xff; // 右移八位是因为16位数据只有后面八位可以存入8位的数组
-    TxData[1] = ((int16_t)mypid.output) & 0xff;
+		CAN1_Transmit(TxID,TxLength,TxData);
 
-    CAN1_Transmit(TxID, TxLength, TxData);
-
-    xQueueSend(QueueHandler, TeBuffer, 0);
-
-    // printf("Output:%f\n",mypid.output);
-    // printf("%f,%f\n",targetValue,feedbackValue);
+		//printf("Output:%f\n",mypid.output);
+		tx_data.data[0] = outerFeedback;
+		tx_data.data[1] = outerTarget;
+		tx_data.data[2] = mypid.output / 100.0f;
+		
+    xQueueSend(QueueHandler, (uint8_t*)&tx_data, 0);
 
     vTaskDelayUntil(&xLastWakeTime, 1); // 延时
   }
@@ -575,27 +589,24 @@ void StartTask02(void const *argument)
 
 /* USER CODE BEGIN Header_StartTask03 */
 /**
- * @brief Function implementing the myTask03 thread.
- * @param argument: Not used
- * @retval None
- */
+* @brief Function implementing the myTask03 thread.
+* @param argument: Not used
+* @retval None
+*/
 /* USER CODE END Header_StartTask03 */
-void StartTask03(void const *argument)
+void StartTask03(void const * argument)
 {
   /* USER CODE BEGIN StartTask03 */
-
+  //uint8_t ReBuffer[8];
+  BaseType_t xStatues;
+	DataStructDef rx_data;
   /* Infinite loop */
-  for (;;)
+  for(;;)
   {
-    uint8_t ReBuffer[8];
-    BaseType_t xStatues;
-		//float speed_;
-
-    xStatues = xQueueReceive(QueueHandler, ReBuffer, portMAX_DELAY);
+    xStatues = xQueueReceive(QueueHandler, (uint8_t *)&rx_data, portMAX_DELAY);
     if (xStatues == pdTRUE)
     {			
-			//feedbackValue1 = (ReBuffer[0] << 8)  | ReBuffer[1];
-			printf("%f,%f\n", outerTarget, (float)ReBuffer[0]);  
+			printf("%f,%f,%f\n", rx_data.data[0], rx_data.data[1],rx_data.data[2]);  
     }
     vTaskDelay(5);
   }
@@ -603,20 +614,19 @@ void StartTask03(void const *argument)
 }
 
 /**
- * @brief  Period elapsed callback in non blocking mode
- * @note   This function is called  when TIM4 interrupt took place, inside
- * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
- * a global variable "uwTick" used as application time base.
- * @param  htim : TIM handle
- * @retval None
- */
+  * @brief  Period elapsed callback in non blocking mode
+  * @note   This function is called  when TIM4 interrupt took place, inside
+  * HAL_TIM_IRQHandler(). It makes a direct call to HAL_IncTick() to increment
+  * a global variable "uwTick" used as application time base.
+  * @param  htim : TIM handle
+  * @retval None
+  */
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 {
   /* USER CODE BEGIN Callback 0 */
 
   /* USER CODE END Callback 0 */
-  if (htim->Instance == TIM4)
-  {
+  if (htim->Instance == TIM4) {
     HAL_IncTick();
   }
   /* USER CODE BEGIN Callback 1 */
@@ -625,9 +635,9 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim)
 }
 
 /**
- * @brief  This function is executed in case of error occurrence.
- * @retval None
- */
+  * @brief  This function is executed in case of error occurrence.
+  * @retval None
+  */
 void Error_Handler(void)
 {
   /* USER CODE BEGIN Error_Handler_Debug */
@@ -639,14 +649,14 @@ void Error_Handler(void)
   /* USER CODE END Error_Handler_Debug */
 }
 
-#ifdef USE_FULL_ASSERT
+#ifdef  USE_FULL_ASSERT
 /**
- * @brief  Reports the name of the source file and the source line number
- *         where the assert_param error has occurred.
- * @param  file: pointer to the source file name
- * @param  line: assert_param error line source number
- * @retval None
- */
+  * @brief  Reports the name of the source file and the source line number
+  *         where the assert_param error has occurred.
+  * @param  file: pointer to the source file name
+  * @param  line: assert_param error line source number
+  * @retval None
+  */
 void assert_failed(uint8_t *file, uint32_t line)
 {
   /* USER CODE BEGIN 6 */
