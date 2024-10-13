@@ -515,7 +515,7 @@ void StartTask02(void const *argument)
 
   FilterInit();
 
-  PID_Init(&mypid, 3, 6, 5, 2500, 15000);
+  PID_Init(&mypid, 3, 1, 5, 20000, 15000);
 
   uint8_t TeBuffer[4];
 
