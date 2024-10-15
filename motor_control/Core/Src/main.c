@@ -431,7 +431,6 @@ void StartTask02(void const * argument)
 		uint8_t TxLength = 8;
 		uint8_t TxData[8];
 	
-	
 		TxData[0] = 0x30;
 		TxData[1] = 0xE8;
 		
