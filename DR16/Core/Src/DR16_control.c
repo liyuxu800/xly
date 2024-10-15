@@ -2,33 +2,9 @@
 #include "DR16_control.h"
 
 /* ----------------------- Data Struct ------------------------------------- */
-typedef __packed struct
-{
-    struct
-    {
-        uint16_t ch0;
-        uint16_t ch1;
-        uint16_t ch2;
-        uint16_t ch3;
-        uint8_t s1;
-        uint8_t s2;
-    } rc;
-    struct
-    {
-        int16_t x;
-        int16_t y;
-        int16_t z;
-        uint8_t press_l;
-        uint8_t press_r;
-    } mouse;
-    struct
-    {
-        uint16_t v;
-    } key;
-} RC_Ctl_t;
 /* ----------------------- Internal Data ----------------------------------- */
 volatile unsigned char sbus_rx_buffer[2][RC_FRAME_LENGTH]; // double sbus rx buffer to save data
-static RC_Ctl_t RC_CtrlData;
+RC_Ctl_t RC_CtrlData;
 
 /* ----------------------- Function Implements  ---------------------------- */
 
@@ -86,7 +62,7 @@ void RemoteDataProcess(uint8_t *pData) // 用于解析数据，pData指向接收
 
     RC_CtrlData.key.v = ((int16_t)pData[14]); // | ((int16_t)pData[15] << 8);
 
-    // your control code ….
+    
 }
 
 /******************************************************************************/

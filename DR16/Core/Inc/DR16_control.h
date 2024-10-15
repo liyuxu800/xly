@@ -1,6 +1,8 @@
 #ifndef DR16_CONTROL
 #define DR16_CONTROL
 
+#include "stm32f4xx_hal.h"
+
 /* ----------------------- RC Channel Definition---------------------------- */ 
 #define RC_CH_VALUE_MIN              ((uint16_t)364 ) 
 #define RC_CH_VALUE_OFFSET           ((uint16_t)1024) 
@@ -20,6 +22,32 @@
 #define KEY_PRESSED_OFFSET_CTRL      ((uint16_t)0x01<<7) 
 #define  RC_FRAME_LENGTH                    18u     
 
+typedef __packed struct
+{
+    __packed struct
+    {
+        uint16_t ch0;
+        uint16_t ch1;
+        uint16_t ch2;
+        uint16_t ch3;
+        uint8_t s1;
+        uint8_t s2;
+    } rc;
+    __packed struct 
+    {
+        int16_t x;
+        int16_t y;
+        int16_t z;
+        uint8_t press_l;
+        uint8_t press_r;
+    } mouse;
+    __packed struct 
+    {
+        uint16_t v;
+    } key;
+} RC_Ctl_t;
+
+extern RC_Ctl_t RC_CtrlData;
 
 void RemoteDataProcess(uint8_t *pData);
 

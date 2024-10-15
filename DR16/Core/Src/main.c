@@ -23,30 +23,57 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "DR16_control.h"
+#include "stdio.h"
+#include "freertos.h"
+#include "task.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-extern volatile unsigned char sbus_rx_buffer[2][RC_FRAME_LENGTH];
+#define  LENGTH  18
+
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+extern volatile unsigned char sbus_rx_buffer[2][RC_FRAME_LENGTH];
+extern uint16_t count_1;
+extern uint16_t count_2;
+
+uint8_t RxBuffer[LENGTH];
+uint8_t RecCount = 0;
+uint8_t RxFlag = 0;
 
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
+float feedbackValue;
+float feedbackValue1;
+float targetValue = 0;
 
+uint32_t RxID;
+uint8_t RxLength = 8;
+uint8_t RxData[8];
+
+int16_t Speed;
+
+float alpha = 0.05;  // 平滑因子
+
+QueueHandle_t QueueHandler;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
+CAN_HandleTypeDef hcan1;
+
+UART_HandleTypeDef huart1;
 UART_HandleTypeDef huart2;
 DMA_HandleTypeDef hdma_usart2_rx;
 DMA_HandleTypeDef hdma_usart2_tx;
 
 osThreadId defaultTaskHandle;
 osThreadId controlHandle;
+osSemaphoreId myBinarySem01Handle;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
@@ -56,6 +83,8 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_DMA_Init(void);
 static void MX_USART2_UART_Init(void);
+static void MX_CAN1_Init(void);
+static void MX_USART1_UART_Init(void);
 void StartDefaultTask(void const * argument);
 void DR16_control(void const * argument);
 
@@ -65,7 +94,164 @@ void DR16_control(void const * argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+typedef struct
+{
+  float kp, ki, kd;            // 三个系数
+  float error, lastError;      // 误差、上次误�??????
+  float integral, maxIntegral; // 积分、积分限�??????
+  float output, maxOutput;     // 输出、输出限�??????
+} PID;
 
+// 用于初始化pid参数的函�??????
+void PID_Init(PID *pid, float p, float i, float d, float maxI, float maxOut)
+{
+  pid->kp = p;
+  pid->ki = i;
+  pid->kd = d;
+  pid->maxIntegral = maxI;
+  pid->maxOutput = maxOut;
+}
+
+// 进行�??????次pid计算
+// 参数�??????(pid结构�??????,目标�??????,反馈�??????)，计算结果放在pid结构体的output成员成员�??????
+void PID_Calc(PID *pid, float reference, float feedback)
+{
+  // 更新数据
+  pid->lastError = pid->error;       // 将旧error存起�??????
+  pid->error = reference - feedback; // 计算新error
+  // 计算微分
+  static float dout;
+  dout = (pid->error - pid->lastError) * pid->kd;
+  // 计算比例
+  static float pout;
+  pout = pid->error * pid->kp;
+  // 计算积分
+  pid->integral += pid->error;
+  static float iout;
+  iout = pid->integral * pid->ki;
+  // 积分限幅
+  if (pid->integral > pid->maxIntegral)
+    pid->integral = pid->maxIntegral;
+  else if (pid->integral < -pid->maxIntegral)
+    pid->integral = -pid->maxIntegral;
+  // 计算输出
+  pid->output = pout + dout + iout;
+  // 输出限幅
+  if (pid->output > pid->maxOutput)
+    pid->output = pid->maxOutput;
+  else if (pid->output < -pid->maxOutput)
+    pid->output = -pid->maxOutput;
+}
+
+float emaFilter(float input, float *prev_ema, float alpha)
+{
+  // 计算新的 EMA �??
+  *prev_ema = alpha * input + (1.0f - alpha) * (*prev_ema);
+  return *prev_ema;
+}
+
+void FilterInit(void)
+{
+  CAN_FilterTypeDef CAN_FilterInitStructure;
+  CAN_FilterInitStructure.FilterActivation = ENABLE;
+  CAN_FilterInitStructure.FilterBank = 0;
+  CAN_FilterInitStructure.FilterFIFOAssignment = CAN_FILTER_FIFO0;
+  CAN_FilterInitStructure.FilterIdHigh = 0x0000;
+  CAN_FilterInitStructure.FilterIdLow = 0x0000;
+  CAN_FilterInitStructure.FilterMaskIdHigh = 0x0000;
+  CAN_FilterInitStructure.FilterMaskIdLow = 0x0000;
+  CAN_FilterInitStructure.FilterMode = CAN_FILTERMODE_IDMASK;
+  CAN_FilterInitStructure.FilterScale = CAN_FILTERSCALE_32BIT;
+  CAN_FilterInitStructure.SlaveStartFilterBank = 0;
+  HAL_CAN_ConfigFilter(&hcan1, &CAN_FilterInitStructure);
+
+  if (HAL_CAN_ConfigFilter(&hcan1, &CAN_FilterInitStructure) != HAL_OK)
+  {
+    //  printf("CAN1 ConfigFilter Fail!!\r\n");
+  }
+  else
+  {
+    // printf("CAN1 ConfigFilter SUCCESS!!\r\n");
+  }
+}
+
+void CAN1_Transmit(uint32_t ID, uint8_t Length, uint8_t *Data)
+{
+  CAN_TxHeaderTypeDef TxMessage = {0};
+  uint8_t Tx_Buffer[8] = {0};
+  uint32_t box = 0;
+  TxMessage.StdId = ID;
+  TxMessage.ExtId = ID;
+  TxMessage.IDE = CAN_ID_STD;
+  TxMessage.RTR = CAN_RTR_DATA;
+  TxMessage.DLC = Length;
+  TxMessage.TransmitGlobalTime = DISABLE;
+  for (uint8_t i = 0; i < Length; i++)
+  {
+    Tx_Buffer[i] = Data[i];
+  }
+  HAL_StatusTypeDef TransmitMailbox;
+  TransmitMailbox = HAL_CAN_AddTxMessage(&hcan1, &TxMessage, Tx_Buffer, &box);
+  if (TransmitMailbox != HAL_OK)
+  {
+    //	printf("Transmit Error!");
+  }
+  else
+  {
+    // printf("Transmit Success!\r\n");
+  }
+
+  // vTaskDelayUntil(&xLastWakeTime,1000);
+}
+
+uint8_t CAN1_ReceiveFlag(void)
+{
+  if (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) != 0)
+  {
+    //	printf("CAN1 has some Message");
+    return 1;
+  }
+  return 0;
+}
+
+void CAN1_Receive(uint32_t *ID, uint8_t *Length, uint8_t *Data)
+{
+  //		FilterInit();
+
+  CAN_RxHeaderTypeDef rceStu = {0};
+  if (CAN1_ReceiveFlag() != 0)
+  {
+    if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rceStu, Data) == HAL_OK)
+    {
+      // printf("rceStu.DLC: %d\r\n",rceStu.DLC);
+      // printf("rceStu.ExtId: %d\r\n",rceStu.ExtId);
+      // printf("rceStu.StdId: %x\r\n",rceStu.StdId);
+      // printf("rceStu.Timestamp: %d\r\n",rceStu.Timestamp);
+      for (uint8_t i = 0; i < rceStu.DLC; i++)
+      {
+        // printf(" %x",Data[i]);
+      }
+      //printf("\r\n");
+    }
+  }
+  else
+  {
+    // printf("No CAN1 INFO!\r\n");
+  }
+}
+
+//void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
+//{
+ // if(hcan->Instance == CAN1)
+ // {
+//   CAN1_Receive(&RxID, &RxLength, RxData);
+//  }
+ 
+//}
+
+ PID mypid = {0};
+ 
+ 
 /* USER CODE END 0 */
 
 /**
@@ -75,7 +261,12 @@ void DR16_control(void const * argument);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-
+	
+  QueueHandler = xQueueCreate(20, 20);
+  if (QueueHandler == NULL)
+  {
+    printf("error");
+  }
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -98,6 +289,8 @@ int main(void)
   MX_GPIO_Init();
   MX_DMA_Init();
   MX_USART2_UART_Init();
+  MX_CAN1_Init();
+  MX_USART1_UART_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -105,6 +298,11 @@ int main(void)
   /* USER CODE BEGIN RTOS_MUTEX */
   /* add mutexes, ... */
   /* USER CODE END RTOS_MUTEX */
+
+  /* Create the semaphores(s) */
+  /* definition and creation of myBinarySem01 */
+  osSemaphoreDef(myBinarySem01);
+  myBinarySem01Handle = osSemaphoreCreate(osSemaphore(myBinarySem01), 1);
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
@@ -124,7 +322,7 @@ int main(void)
   defaultTaskHandle = osThreadCreate(osThread(defaultTask), NULL);
 
   /* definition and creation of control */
-  osThreadDef(control, DR16_control, osPriorityIdle, 0, 128);
+  osThreadDef(control, DR16_control, osPriorityNormal, 0, 128);
   controlHandle = osThreadCreate(osThread(control), NULL);
 
   /* USER CODE BEGIN RTOS_THREADS */
@@ -191,6 +389,76 @@ void SystemClock_Config(void)
 }
 
 /**
+  * @brief CAN1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_CAN1_Init(void)
+{
+
+  /* USER CODE BEGIN CAN1_Init 0 */
+
+  /* USER CODE END CAN1_Init 0 */
+
+  /* USER CODE BEGIN CAN1_Init 1 */
+
+  /* USER CODE END CAN1_Init 1 */
+  hcan1.Instance = CAN1;
+  hcan1.Init.Prescaler = 6;
+  hcan1.Init.Mode = CAN_MODE_NORMAL;
+  hcan1.Init.SyncJumpWidth = CAN_SJW_1TQ;
+  hcan1.Init.TimeSeg1 = CAN_BS1_4TQ;
+  hcan1.Init.TimeSeg2 = CAN_BS2_2TQ;
+  hcan1.Init.TimeTriggeredMode = DISABLE;
+  hcan1.Init.AutoBusOff = DISABLE;
+  hcan1.Init.AutoWakeUp = DISABLE;
+  hcan1.Init.AutoRetransmission = DISABLE;
+  hcan1.Init.ReceiveFifoLocked = DISABLE;
+  hcan1.Init.TransmitFifoPriority = DISABLE;
+  if (HAL_CAN_Init(&hcan1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN CAN1_Init 2 */
+
+  /* USER CODE END CAN1_Init 2 */
+
+}
+
+/**
+  * @brief USART1 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_USART1_UART_Init(void)
+{
+
+  /* USER CODE BEGIN USART1_Init 0 */
+
+  /* USER CODE END USART1_Init 0 */
+
+  /* USER CODE BEGIN USART1_Init 1 */
+
+  /* USER CODE END USART1_Init 1 */
+  huart1.Instance = USART1;
+  huart1.Init.BaudRate = 115200;
+  huart1.Init.WordLength = UART_WORDLENGTH_8B;
+  huart1.Init.StopBits = UART_STOPBITS_1;
+  huart1.Init.Parity = UART_PARITY_NONE;
+  huart1.Init.Mode = UART_MODE_TX_RX;
+  huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+  huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+  if (HAL_UART_Init(&huart1) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN USART1_Init 2 */
+
+  /* USER CODE END USART1_Init 2 */
+
+}
+
+/**
   * @brief USART2 Initialization Function
   * @param None
   * @retval None
@@ -206,10 +474,10 @@ static void MX_USART2_UART_Init(void)
 
   /* USER CODE END USART2_Init 1 */
   huart2.Instance = USART2;
-  huart2.Init.BaudRate = 115200;
+  huart2.Init.BaudRate = 100000;
   huart2.Init.WordLength = UART_WORDLENGTH_8B;
   huart2.Init.StopBits = UART_STOPBITS_1;
-  huart2.Init.Parity = UART_PARITY_NONE;
+  huart2.Init.Parity = UART_PARITY_EVEN;
   huart2.Init.Mode = UART_MODE_TX_RX;
   huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
   huart2.Init.OverSampling = UART_OVERSAMPLING_16;
@@ -262,36 +530,46 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+  void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	if(huart -> Instance == USART2)
+	{
+		HAL_UART_Receive_DMA(&huart2,(uint8_t*)RxBuffer,LENGTH);
+	}
+}
+
 void HAL_UART_IdleCpltCallback(UART_HandleTypeDef *huart)
 {
-  // clear the idle pending flag
-  (void)USART2->SR;
-  (void)USART2->DR;
+	BaseType_t xHigherPriorityTaskWoken = pdFALSE;
+	
+	xSemaphoreGiveFromISR(myBinarySem01Handle,&xHigherPriorityTaskWoken);
+//	xSemaphoreGive(myBinarySem01Handle);
+	
+	RxFlag = 1;
+	HAL_UART_DMAStop(&huart2);			//关闭DMA，每次空闲都会进函数
+	
+	  if(RxFlag == 1)
+	  {
+			RxFlag = 0;
+		  RecCount = LENGTH - __HAL_DMA_GET_COUNTER(&hdma_usart2_rx);
+		//	printf("%s\r\n",RxBuffer);	
+		  RecCount = 0;
+			HAL_UART_Receive_DMA(&huart2,(uint8_t*)RxBuffer,LENGTH);		
+	  }
+			
+}
 
-  // Target is Memory0
-  if (DMA_GetCurrentMemoryTarget(DMA1_Stream5) == 0)
-  {
-    __HAL_UART_DISABLE(huart->hdmarx);
-    DMA1_Stream5->NDTR = (uint16_t)RC_FRAME_LENGTH; // relocate the dma memory pointer to the beginning position
-    DMA1_Stream5->CR |= (uint32_t)(DMA_SxCR_CT);    // enable the current selected memory is Memory 1
-    __HAL_DMA_ENABLE(huart->hdmarx);
-    if (DMA_GetCurrDataCounter(DMA1_Stream5) == 0) // ensure received complete frame data.
-    {
-      RemoteDataProcess(sbus_rx_buffer[0]);
-    }
-  }
-  // Target is Memory1
-  else
-  {
-    __HAL_UART_DISABLE(huart->hdmarx);
-    DMA1_Stream5->NDTR = (uint16_t)RC_FRAME_LENGTH; // relocate the dma memory pointer to the beginning position
-    DMA1_Stream5->CR &= ~(uint32_t)(DMA_SxCR_CT);   // enable the current selected memory is Memory 0 
-    __HAL_DMA_ENABLE(huart->hdmarx);
-    if (DMA_GetCurrDataCounter(DMA1_Stream5) == 0)
-    {
-      RemoteDataProcess(sbus_rx_buffer[1]);
-    }
-  }
+int fputc(int ch, FILE *f)               //重定向fputc函数
+{
+	HAL_UART_Transmit(&huart1,(uint8_t *)&ch,1,HAL_MAX_DELAY);
+	return ch;
+}
+
+int fgetc(FILE *f)               //重定向fgetc函数
+{
+	uint8_t ch;
+	HAL_UART_Receive(&huart1,(uint8_t *)&ch,1,HAL_MAX_DELAY);
+	return ch;
 }
 /* USER CODE END 4 */
 
@@ -305,10 +583,38 @@ void HAL_UART_IdleCpltCallback(UART_HandleTypeDef *huart)
 void StartDefaultTask(void const * argument)
 {
   /* USER CODE BEGIN 5 */
+	uint32_t tick_1 = 0;
+	uint32_t tick_2 = 0;
+	uint32_t tick_interval = 0;
   /* Infinite loop */
   for(;;)
-  {
-    osDelay(1);
+  { 
+//		uint8_t ReBuffer[4];
+//    BaseType_t xStatues;
+//		float speed_;
+
+//    xStatues = xQueueReceive(QueueHandler, (uint8_t *)(void *)&speed_, portMAX_DELAY);
+//    if (xStatues == pdTRUE)
+//    {			
+//			//feedbackValue1 = (ReBuffer[0] << 8)  | ReBuffer[1];
+//		//	printf("%f,%f,%f\n", targetValue, speed_,mypid.output);
+//    }
+		tick_2 = HAL_GetTick();
+		if(xSemaphoreTake(myBinarySem01Handle,100) == pdTRUE)
+		tick_1 = HAL_GetTick();
+		tick_interval = tick_1 - tick_2;
+
+			if(tick_interval <= 100)
+			{
+				RemoteDataProcess((uint8_t*)RxBuffer);
+			}
+			else
+			{
+				RC_CtrlData.rc.ch0 = 0;
+			}
+			xQueueSend(QueueHandler , &RC_CtrlData, 0);
+	
+    vTaskDelay(1);
   }
   /* USER CODE END 5 */
 }
@@ -323,10 +629,69 @@ void StartDefaultTask(void const * argument)
 void DR16_control(void const * argument)
 {
   /* USER CODE BEGIN DR16_control */
+  __HAL_UART_ENABLE_IT(&huart2,UART_IT_IDLE);			//使能中断
+  HAL_UART_Receive_DMA(&huart2,(uint8_t*)RxBuffer,LENGTH);		//�?启DMA中断
+	
+	uint32_t TxID = 0x1FF;
+  uint8_t TxLength = 8;
+  uint8_t TxData[8] = {0};
+	uint8_t TxData_1[8] = {0};
+	
+//	 BaseType_t xStatues;
+
+//   uint32_t RxID;
+//   uint8_t RxLength = 8;
+//   uint8_t RxData[8];
+
+  HAL_CAN_Start(&hcan1);
+
+  FilterInit();
+
+  PID_Init(&mypid, 3, 1, 5, 20000, 15000);
+
+//  uint8_t TeBuffer[4];
+
+//  float alpha = 0.001;  // 平滑因子
+  float prev_ema = 0; // 初始 EMA �?
+
+  //	int16_t i = 0;
+
+  //	uint16_t Angel_first;
+  //	uint16_t Angel;
+  //int16_t Speed;
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+		xQueueReceive(QueueHandler, &RC_CtrlData, 0);
+		
+		TickType_t xLastWakeTime;
+    xLastWakeTime = xTaskGetTickCount();
+		
+	 //RemoteDataProcess((uint8_t*)RxBuffer);
+	//	printf("%d\r\n",RC_CtrlData.rc.ch0);	
+		
+		targetValue = RC_CtrlData.rc.ch0 * 25000 / 1300;
+		
+		//HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+
+    CAN1_Receive(&RxID, &RxLength, RxData);
+    Speed = (RxData[2] << 8) | RxData[3];
+
+    feedbackValue = Speed; // 这里获取到被控对象的反馈�?
+
+    float ema_result = emaFilter(feedbackValue, &prev_ema, alpha);
+
+    PID_Calc(&mypid, targetValue, ema_result); // 进行PID计算，结果在output成员变量
+
+    TxData[0] = (((int16_t)mypid.output) >> 8) & 0xff; // 右移八位是因�?16位数据只有后面八位可以存�?8位的数组
+    TxData[1] = ((int16_t)mypid.output) & 0xff;
+
+		CAN1_Transmit(TxID, TxLength, TxData);
+
+    // printf("Output:%f\n",mypid.output);
+    // printf("%f,%f\n",targetValue,feedbackValue);
+		
+     vTaskDelayUntil(&xLastWakeTime, 1);
   }
   /* USER CODE END DR16_control */
 }
