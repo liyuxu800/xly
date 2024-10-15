@@ -26,6 +26,7 @@
 #include "stdio.h"
 #include "freertos.h"
 #include "task.h"
+#include "string.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -530,7 +531,7 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
-  void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
 {
 	if(huart -> Instance == USART2)
 	{
@@ -580,7 +581,7 @@ int fgetc(FILE *f)               //重定向fgetc函数
   * @retval None
   */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void const * argument)
+void StartDefaultTask(void const * argument)		//遥控保护
 {
   /* USER CODE BEGIN 5 */
 	uint32_t tick_1 = 0;
@@ -589,28 +590,18 @@ void StartDefaultTask(void const * argument)
   /* Infinite loop */
   for(;;)
   { 
-//		uint8_t ReBuffer[4];
-//    BaseType_t xStatues;
-//		float speed_;
-
-//    xStatues = xQueueReceive(QueueHandler, (uint8_t *)(void *)&speed_, portMAX_DELAY);
-//    if (xStatues == pdTRUE)
-//    {			
-//			//feedbackValue1 = (ReBuffer[0] << 8)  | ReBuffer[1];
-//		//	printf("%f,%f,%f\n", targetValue, speed_,mypid.output);
-//    }
-		tick_2 = HAL_GetTick();
+		tick_2 = HAL_GetTick();		//获取当前时刻的tick值
 		if(xSemaphoreTake(myBinarySem01Handle,100) == pdTRUE)
-		tick_1 = HAL_GetTick();
-		tick_interval = tick_1 - tick_2;
+		tick_1 = HAL_GetTick();			//再次获取
+		tick_interval = tick_1 - tick_2;	//判断两次tick之间的时间差
 
-			if(tick_interval <= 100)
+			if(tick_interval <= 100)		//如果小于等于100，说明在等待时间内获取了信号量
 			{
 				RemoteDataProcess((uint8_t*)RxBuffer);
 			}
-			else
+			else						//如果大于100，说明为超时退出
 			{
-				RC_CtrlData.rc.ch0 = 0;
+				memset(&RC_CtrlData, 0, sizeof(RC_CtrlData));
 			}
 			xQueueSend(QueueHandler , &RC_CtrlData, 0);
 	
@@ -636,12 +627,6 @@ void DR16_control(void const * argument)
   uint8_t TxLength = 8;
   uint8_t TxData[8] = {0};
 	uint8_t TxData_1[8] = {0};
-	
-//	 BaseType_t xStatues;
-
-//   uint32_t RxID;
-//   uint8_t RxLength = 8;
-//   uint8_t RxData[8];
 
   HAL_CAN_Start(&hcan1);
 
@@ -649,16 +634,8 @@ void DR16_control(void const * argument)
 
   PID_Init(&mypid, 3, 1, 5, 20000, 15000);
 
-//  uint8_t TeBuffer[4];
-
-//  float alpha = 0.001;  // 平滑因子
   float prev_ema = 0; // 初始 EMA �?
 
-  //	int16_t i = 0;
-
-  //	uint16_t Angel_first;
-  //	uint16_t Angel;
-  //int16_t Speed;
   /* Infinite loop */
   for(;;)
   {
@@ -667,12 +644,7 @@ void DR16_control(void const * argument)
 		TickType_t xLastWakeTime;
     xLastWakeTime = xTaskGetTickCount();
 		
-	 //RemoteDataProcess((uint8_t*)RxBuffer);
-	//	printf("%d\r\n",RC_CtrlData.rc.ch0);	
-		
 		targetValue = RC_CtrlData.rc.ch0 * 25000 / 1300;
-		
-		//HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 
     CAN1_Receive(&RxID, &RxLength, RxData);
     Speed = (RxData[2] << 8) | RxData[3];
@@ -687,9 +659,6 @@ void DR16_control(void const * argument)
     TxData[1] = ((int16_t)mypid.output) & 0xff;
 
 		CAN1_Transmit(TxID, TxLength, TxData);
-
-    // printf("Output:%f\n",mypid.output);
-    // printf("%f,%f\n",targetValue,feedbackValue);
 		
      vTaskDelayUntil(&xLastWakeTime, 1);
   }

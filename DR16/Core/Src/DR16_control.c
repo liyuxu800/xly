@@ -1,31 +1,9 @@
 #include "stm32f4xx_hal.h"
 #include "DR16_control.h"
 
-/* ----------------------- Data Struct ------------------------------------- */
-/* ----------------------- Internal Data ----------------------------------- */
 volatile unsigned char sbus_rx_buffer[2][RC_FRAME_LENGTH]; // double sbus rx buffer to save data
 RC_Ctl_t RC_CtrlData;
 
-/* ----------------------- Function Implements  ---------------------------- */
-
-/******************************************************************************
- * @fn      RC_Init
- *
- * @brief   configure stm32 usart2 port
- *          -   USART Parameters
- *              -   100Kbps
- *              -   8-N-1
- *          -   DMA Mode
- *
- * @return  None.
- *
- * @note    This code is fully tested on STM32F405RGT6 Platform, You can port
-it
- *          to the other platform. Using doube buffer to receive data prevent
-losing data.
- */
-
-// 此处官方实例代码为标准库的各个外设初始化，此处删除。
 
 /******************************************************************************
  * @fn      RemoteDataProcess
@@ -35,6 +13,7 @@ losing data.
  * @return  None.
  * @note    RC_CtrlData is a global variable.you can deal with it in other place.
  */
+ 
 void RemoteDataProcess(uint8_t *pData) // 用于解析数据，pData指向接收缓冲区的指针，存储了从遥控器接收到的数据
 {
     if (pData == NULL) 

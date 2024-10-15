@@ -25,7 +25,7 @@
 #include "stdio.h"
 #include "FreeRTOS.h"
 #include "task.h"
-
+#include "PID.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -77,100 +77,9 @@ void StartTask03(void const * argument);
 /* USER CODE BEGIN 0 */
 typedef struct
 {
-  uint16_t encoder,last_encoder;
-  int16_t round;
-  int16_t finally_angle;
-}AngleStructDef;
-AngleStructDef angle_update = {0};
-
-void updata_angle(AngleStructDef *__angle,uint16_t new_encoder)
-{
-  __angle->last_encoder = __angle->encoder;
-  __angle->encoder = new_encoder;
-  float resulte =  __angle->encoder - __angle->last_encoder;
-  if(resulte < -4096)
-  {
-    __angle -> round ++;
-  }
-  else if(resulte >4096)
-  {
-     __angle -> round --;
-  }
-  __angle->finally_angle = __angle->round *360;
-}
-
-typedef struct
-{
 	float data[3];
 }DataStructDef;
-DataStructDef tx_data;
-
-typedef struct
-{
-   	float kp, ki, kd; //三个系数
-    float error, lastError; //误差、上次误�?
-    float integral, maxIntegral; //积分、积分限�?
-    float output, maxOutput; //输出、输出限�?
-}PID;
-
-//PID mypid = {0};
-
-//用于初始化pid参数的函�?
-void PID_Init(PID *pid, 	float p, float i, float d, float maxI, float maxOut)
-{
-    pid->kp = p;
-    pid->ki = i;
-    pid->kd = d;
-    pid->maxIntegral = maxI;
-    pid->maxOutput = maxOut;
-}
- 
-//进行�?次pid计算
-//参数�?(pid结构�?,目标�?,反馈�?)，计算结果放在pid结构体的output成员成员�?
-void PID_Calc(PID *pid, float reference, float feedback)
-{
- 	//更新数据
-    pid->lastError = pid->error; //将旧error存起�?
-    pid->error = reference - feedback; //计算新error
-    //计算微分
-    static float dout;
-		dout = (pid->error - pid->lastError) * pid->kd;
-    //计算比例
-    static float pout;
-		pout	= pid->error * pid->kp;
-    //计算积分
-    pid->integral += pid->error;
-	  static float iout;
-		iout = pid->integral* pid->ki;
-    //积分限幅
-    if(pid->integral > pid->maxIntegral) pid->integral = pid->maxIntegral;
-    else if(pid->integral < -pid->maxIntegral) pid->integral = -pid->maxIntegral;
-    //计算输出
-    pid->output = pout + dout + iout;
-    //输出限幅
-    if(pid->output > pid->maxOutput) pid->output =   pid->maxOutput;
-    else if(pid->output < -pid->maxOutput) pid->output = -pid->maxOutput;
-}
-
-
-//串级PID的结构体，包含两个单级PID
-typedef struct
-{
-    PID inner; //内环
-    PID outer; //外环
-    float output; //串级输出，等于inner.output
-}CascadePID;
- 
-//串级PID的计算函�?
-//参数(PID结构�?,外环目标�?,外环反馈�?,内环反馈�?)
-void PID_CascadeCalc(CascadePID *pid, float outerRef, float outerFdb, float innerFdb)
-{
-    PID_Calc(&pid->outer, outerRef, outerFdb); //计算外环
-    PID_Calc(&pid->inner, pid->outer.output, innerFdb); //计算内环
-    pid->output = pid->inner.output; //内环输出就是串级PID的输�?
-}
- 
-CascadePID mypid = {0}; //创建串级PID结构体变�?
+DataStructDef tx_data;		//定义结构体，便于在队列中传输数据
 
 void FilterInit(void)
 {
@@ -525,7 +434,7 @@ void StartTask02(void const * argument)
 {
   /* USER CODE BEGIN StartTask02 */
   TickType_t xLastWakeTime;
-  xLastWakeTime = xTaskGetTickCount();	
+  xLastWakeTime = xTaskGetTickCount();	//定义类型，使用vTaskDelayUntil
 
 	HAL_CAN_Start(&hcan1);
 	
@@ -534,8 +443,6 @@ void StartTask02(void const * argument)
 	PID_Init(&mypid.inner, 30, 0, 0, 0, 25000); //初始化内环参�?
   PID_Init(&mypid.outer, 70, 0, 0, 0, 25000); //初始化外环参�?
 
-		
-//	int16_t i = 0;
 	uint32_t TxID = 0x1FF;
 	uint8_t TxLength = 8;
 	uint8_t TxData[8];
@@ -548,7 +455,6 @@ void StartTask02(void const * argument)
 	static float Angle;
 	int16_t Speed;
 
-//  uint8_t TeBuffer[8];
   /* Infinite loop */
   for(;;)
   {
@@ -561,21 +467,14 @@ void StartTask02(void const * argument)
 
     outerFeedback = Angle + (float)angle_update.finally_angle; //获取外环反馈�?
 
-//    outerTarget = ; //获取外环目标�?
-   // outerFeedback = Angle; //获取外环反馈�?
     innerFeedback = Speed; //获取内环反馈�?
     PID_CascadeCalc(&mypid, outerTarget, outerFeedback, innerFeedback); //进行PID计算
-    
-		//printf("Speed = %d\r\n",Speed);
 		
 		TxData[0] = (((int16_t)mypid.output) >> 8) & 0xff;				//右移八位是因�?16位数据只有后面八位可以存�?8位的数组
 		TxData[1] = ((int16_t)mypid.output) & 0xff;
-		
-   //0 TeBuffer[0] = Angle;
 
 		CAN1_Transmit(TxID,TxLength,TxData);
 
-		//printf("Output:%f\n",mypid.output);
 		tx_data.data[0] = outerFeedback;
 		tx_data.data[1] = outerTarget;
 		tx_data.data[2] = mypid.output / 100.0f;
@@ -597,7 +496,6 @@ void StartTask02(void const * argument)
 void StartTask03(void const * argument)
 {
   /* USER CODE BEGIN StartTask03 */
-  //uint8_t ReBuffer[8];
   BaseType_t xStatues;
 	DataStructDef rx_data;
   /* Infinite loop */

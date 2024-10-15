@@ -429,6 +429,16 @@
               <FileType>1</FileType>
               <FilePath>../Core/Src/stm32f4xx_hal_timebase_tim.c</FilePath>
             </File>
+            <File>
+              <FileName>RC_protection.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\RC_protection.c</FilePath>
+            </File>
+            <File>
+              <FileName>RC_protection.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\Inc\RC_protection.h</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

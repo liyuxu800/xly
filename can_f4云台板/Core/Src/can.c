@@ -1,4 +1,4 @@
-#include "stm32f4xx_hal.h"
+#include "stm32f4xx.h"
 
 extern CAN_HandleTypeDef hcan1;
 

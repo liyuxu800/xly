@@ -419,6 +419,16 @@
               <FileType>1</FileType>
               <FilePath>../Core/Src/stm32f4xx_hal_timebase_tim.c</FilePath>
             </File>
+            <File>
+              <FileName>PID_Single_Loop.h</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\Core\Inc\PID_Single_Loop.h</FilePath>
+            </File>
+            <File>
+              <FileName>PID_Single_Loop.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\PID_Single_Loop.c</FilePath>
+            </File>
           </Files>
         </Group>
         <Group>

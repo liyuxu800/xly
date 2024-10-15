@@ -3,20 +3,20 @@
         {
             "name": "PID",
             "includePath": [
-                "d:\\git_one\\PID_11111111111111111111111111111\\Core\\Inc",
-                "d:\\git_one\\PID_11111111111111111111111111111\\Drivers\\STM32F4xx_HAL_Driver\\Inc",
-                "d:\\git_one\\PID_11111111111111111111111111111\\Drivers\\STM32F4xx_HAL_Driver\\Inc\\Legacy",
-                "d:\\git_one\\PID_11111111111111111111111111111\\Middlewares\\Third_Party\\FreeRTOS\\Source\\include",
-                "d:\\git_one\\PID_11111111111111111111111111111\\Middlewares\\Third_Party\\FreeRTOS\\Source\\CMSIS_RTOS",
-                "d:\\git_one\\PID_11111111111111111111111111111\\Middlewares\\Third_Party\\FreeRTOS\\Source\\portable\\RVDS\\ARM_CM4F",
-                "d:\\git_one\\PID_11111111111111111111111111111\\Drivers\\CMSIS\\Device\\ST\\STM32F4xx\\Include",
-                "d:\\git_one\\PID_11111111111111111111111111111\\Drivers\\CMSIS\\Include",
+                "d:\\git_one\\PID_one\\Core\\Inc",
+                "d:\\git_one\\PID_one\\Drivers\\STM32F4xx_HAL_Driver\\Inc",
+                "d:\\git_one\\PID_one\\Drivers\\STM32F4xx_HAL_Driver\\Inc\\Legacy",
+                "d:\\git_one\\PID_one\\Middlewares\\Third_Party\\FreeRTOS\\Source\\include",
+                "d:\\git_one\\PID_one\\Middlewares\\Third_Party\\FreeRTOS\\Source\\CMSIS_RTOS",
+                "d:\\git_one\\PID_one\\Middlewares\\Third_Party\\FreeRTOS\\Source\\portable\\RVDS\\ARM_CM4F",
+                "d:\\git_one\\PID_one\\Drivers\\CMSIS\\Device\\ST\\STM32F4xx\\Include",
+                "d:\\git_one\\PID_one\\Drivers\\CMSIS\\Include",
                 "D:\\sofeware\\ARM_MDK\\ARM\\ARMCC\\include",
-                "d:\\git_one\\PID_11111111111111111111111111111\\MDK-ARM",
-                "d:\\git_one\\PID_11111111111111111111111111111\\Core\\Src",
-                "d:\\git_one\\PID_11111111111111111111111111111\\Drivers\\STM32F4xx_HAL_Driver\\Src",
-                "d:\\git_one\\PID_11111111111111111111111111111\\Middlewares\\Third_Party\\FreeRTOS\\Source",
-                "d:\\git_one\\PID_11111111111111111111111111111\\Middlewares\\Third_Party\\FreeRTOS\\Source\\portable\\MemMang"
+                "d:\\git_one\\PID_one\\MDK-ARM",
+                "d:\\git_one\\PID_one\\Core\\Src",
+                "d:\\git_one\\PID_one\\Drivers\\STM32F4xx_HAL_Driver\\Src",
+                "d:\\git_one\\PID_one\\Middlewares\\Third_Party\\FreeRTOS\\Source",
+                "d:\\git_one\\PID_one\\Middlewares\\Third_Party\\FreeRTOS\\Source\\portable\\MemMang"
             ],
             "defines": [
                 "USE_HAL_DRIVER",
