@@ -40,7 +40,7 @@
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
-
+QueueHandle_t QueueHandler;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/

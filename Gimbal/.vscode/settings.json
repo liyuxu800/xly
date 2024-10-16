@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "cmsis_os.h": "c",
+        "usart.h": "c",
+        "gpio.h": "c"
+    }
+}
