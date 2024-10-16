@@ -164,10 +164,46 @@ void StartDefaultTask(void *argument)
 void yaw_control(void *argument)
 {
   /* USER CODE BEGIN yaw_control */
+  __HAL_UART_ENABLE_IT(&huart2, UART_IT_IDLE);                // 使能中断
+  HAL_UART_Receive_DMA(&huart2, (uint8_t *)RxBuffer, LENGTH); // �?启DMA中断
+
+  uint32_t TxID = 0x1FF;
+  uint8_t TxLength = 8;
+  uint8_t TxData[8] = {0};
+  uint8_t TxData_1[8] = {0};
+
+  HAL_CAN_Start(&hcan1);
+
+  FilterInit();
+
+  PID_Init(&mypid, 3, 1, 5, 20000, 15000);
+
+  float prev_ema = 0; // 初始 EMA �?
   /* Infinite loop */
   for (;;)
   {
-    osDelay(1);
+    xQueueReceive(QueueHandler, &RC_CtrlData, 0);
+
+    TickType_t xLastWakeTime;
+    xLastWakeTime = xTaskGetTickCount();
+
+    targetValue = RC_CtrlData.rc.ch0 * 25000 / 1300;
+
+    CAN1_Receive(&RxID, &RxLength, RxData);
+    Speed = (RxData[2] << 8) | RxData[3];
+
+    feedbackValue = Speed; // 这里获取到被控对象的反馈�?
+
+    float ema_result = emaFilter(feedbackValue, &prev_ema, alpha);
+
+    PID_Calc(&mypid, targetValue, ema_result); // 进行PID计算，结果在output成员变量
+
+    TxData[0] = (((int16_t)mypid.output) >> 8) & 0xff; // 右移八位是因�?16位数据只有后面八位可以存�?8位的数组
+    TxData[1] = ((int16_t)mypid.output) & 0xff;
+
+    CAN1_Transmit(TxID, TxLength, TxData);
+
+    vTaskDelayUntil(&xLastWakeTime, 1);
   }
   /* USER CODE END yaw_control */
 }
