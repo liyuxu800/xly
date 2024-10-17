@@ -26,6 +26,7 @@
 #include "FreeRTOS.h"
 #include "task.h"
 #include "PID_Single_Loop.h"
+#include "mycan.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -79,106 +80,6 @@ void StartTask03(void const *argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-
-void FilterInit(void)
-{
-  CAN_FilterTypeDef CAN_FilterInitStructure;
-  CAN_FilterInitStructure.FilterActivation = ENABLE;
-  CAN_FilterInitStructure.FilterBank = 0;
-  CAN_FilterInitStructure.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-  CAN_FilterInitStructure.FilterIdHigh = 0x0000;
-  CAN_FilterInitStructure.FilterIdLow = 0x0000;
-  CAN_FilterInitStructure.FilterMaskIdHigh = 0x0000;
-  CAN_FilterInitStructure.FilterMaskIdLow = 0x0000;
-  CAN_FilterInitStructure.FilterMode = CAN_FILTERMODE_IDMASK;
-  CAN_FilterInitStructure.FilterScale = CAN_FILTERSCALE_32BIT;
-  CAN_FilterInitStructure.SlaveStartFilterBank = 0;
-  HAL_CAN_ConfigFilter(&hcan1, &CAN_FilterInitStructure);
-
-  if (HAL_CAN_ConfigFilter(&hcan1, &CAN_FilterInitStructure) != HAL_OK)
-  {
-    //  printf("CAN1 ConfigFilter Fail!!\r\n");
-  }
-  else
-  {
-    // printf("CAN1 ConfigFilter SUCCESS!!\r\n");
-  }
-}
-
-void CAN1_Transmit(uint32_t ID, uint8_t Length, uint8_t *Data)
-{
-  CAN_TxHeaderTypeDef TxMessage = {0};
-  uint8_t Tx_Buffer[8] = {0};
-  uint32_t box = 0;
-  TxMessage.StdId = ID;
-  TxMessage.ExtId = ID;
-  TxMessage.IDE = CAN_ID_STD;
-  TxMessage.RTR = CAN_RTR_DATA;
-  TxMessage.DLC = Length;
-  TxMessage.TransmitGlobalTime = DISABLE;
-  for (uint8_t i = 0; i < Length; i++)
-  {
-    Tx_Buffer[i] = Data[i];
-  }
-  HAL_StatusTypeDef TransmitMailbox;
-  TransmitMailbox = HAL_CAN_AddTxMessage(&hcan1, &TxMessage, Tx_Buffer, &box);
-  if (TransmitMailbox != HAL_OK)
-  {
-    //	printf("Transmit Error!");
-  }
-  else
-  {
-    // printf("Transmit Success!\r\n");
-  }
-
-  // vTaskDelayUntil(&xLastWakeTime,1000);
-}
-
-uint8_t CAN1_ReceiveFlag(void)
-{
-  if (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) != 0)
-  {
-    //	printf("CAN1 has some Message");
-    return 1;
-  }
-  return 0;
-}
-
-void CAN1_Receive(uint32_t *ID, uint8_t *Length, uint8_t *Data)
-{
-  //		FilterInit();
-
-  CAN_RxHeaderTypeDef rceStu = {0};
-  if (CAN1_ReceiveFlag() != 0)
-  {
-    if (HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rceStu, Data) == HAL_OK)
-    {
-      // printf("rceStu.DLC: %d\r\n",rceStu.DLC);
-      // printf("rceStu.ExtId: %d\r\n",rceStu.ExtId);
-      // printf("rceStu.StdId: %x\r\n",rceStu.StdId);
-      // printf("rceStu.Timestamp: %d\r\n",rceStu.Timestamp);
-      for (uint8_t i = 0; i < rceStu.DLC; i++)
-      {
-        // printf(" %x",Data[i]);
-      }
-      //printf("\r\n");
-    }
-  }
-  else
-  {
-    // printf("No CAN1 INFO!\r\n");
-  }
-}
-
-//void HAL_CAN_RxFifo0MsgPendingCallback(CAN_HandleTypeDef *hcan)
-//{
- // if(hcan->Instance == CAN1)
- // {
-//   CAN1_Receive(&RxID, &RxLength, RxData);
-//  }
- 
-//}
-
 int fputc(int ch, FILE *f)
 {
   HAL_UART_Transmit(&huart1, (uint8_t *)&ch, 1, HAL_MAX_DELAY);
@@ -447,6 +348,10 @@ void StartDefaultTask(void const *argument)
 void StartTask02(void const *argument)
 {
   /* USER CODE BEGIN StartTask02 */
+	    TickType_t xLastWakeTime;
+    xLastWakeTime = xTaskGetTickCount();
+
+	
   uint32_t TxID = 0x1FF;
   uint8_t TxLength = 8;
   uint8_t TxData[8] = {0};
@@ -464,9 +369,6 @@ void StartTask02(void const *argument)
   /* Infinite loop */
   for (;;)
   {
-    TickType_t xLastWakeTime;
-    xLastWakeTime = xTaskGetTickCount();
-
     //HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 
     CAN1_Receive(&RxID, &RxLength, RxData);
