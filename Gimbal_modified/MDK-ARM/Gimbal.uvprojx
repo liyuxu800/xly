@@ -400,29 +400,14 @@
               <FilePath>..\Core\Src\DR16_control.c</FilePath>
             </File>
             <File>
-              <FileName>DR16_control.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\Core\Inc\DR16_control.h</FilePath>
-            </File>
-            <File>
               <FileName>RC_protection.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Core\Src\RC_protection.c</FilePath>
             </File>
             <File>
-              <FileName>RC_protection.h</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\Core\Inc\RC_protection.h</FilePath>
-            </File>
-            <File>
               <FileName>mycan.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Core\Src\mycan.c</FilePath>
-            </File>
-            <File>
-              <FileName>PID_Single_Loop.c</FileName>
-              <FileType>1</FileType>
-              <FilePath>..\Core\Src\PID_Single_Loop.c</FilePath>
             </File>
             <File>
               <FileName>main.c</FileName>
@@ -672,6 +657,11 @@
               <FileName>stm32f4xx_hal_timebase_tim.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Core/Src/stm32f4xx_hal_timebase_tim.c</FilePath>
+            </File>
+            <File>
+              <FileName>PID.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\PID.c</FilePath>
             </File>
           </Files>
         </Group>

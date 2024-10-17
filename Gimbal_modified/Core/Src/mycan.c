@@ -137,3 +137,5 @@ void CAN2_Receive(uint32_t *ID, uint8_t *Length, uint8_t *Data)
 			//printf("No CAN1 INFO!\r\n");
 		}
 }
+
+

@@ -1,8 +1,16 @@
 *** Using Compiler 'V5.06 update 7 (build 960)', folder: 'D:\sofeware\ARM_MDK\ARM\ARM_Compiler_5.06u7\Bin'
-Build target 'DR16'
-compiling stm32f4xx_it.c...
+Build target 'Gimbal'
+compiling mycan.c...
+compiling freertos.c...
+../Core/Src/freertos.c(219): warning:  #177-D: variable "i"  was declared but never referenced
+    static uint8_t i = 0;
+../Core/Src/freertos.c(223): warning:  #177-D: variable "TxData_1"  was declared but never referenced
+    uint8_t TxData_1[8] = {0};
+../Core/Src/freertos.c(276): warning:  #177-D: variable "ReBuffer"  was declared but never referenced
+      uint8_t ReBuffer[4];
+../Core/Src/freertos.c: 3 warnings, 0 errors
 linking...
-Program Size: Code=15860 RO-data=532 RW-data=188 ZI-data=17740  
+Program Size: Code=19732 RO-data=612 RW-data=192 ZI-data=17776  
 FromELF: creating hex file...
-"DR16\DR16.axf" - 0 Error(s), 0 Warning(s).
+"DR16\DR16.axf" - 0 Error(s), 3 Warning(s).
 Build Time Elapsed:  00:00:02
