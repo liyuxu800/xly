@@ -28,10 +28,12 @@
 #include "string.h"
 #include "stdio.h"
 
+//自己移植的函数
 #include "mycan.h"
 #include "PID.h"
 #include "DR16_control.h"
 
+//外设
 #include "usart.h"
 #include "can.h"
 
@@ -47,7 +49,7 @@ extern volatile unsigned char sbus_rx_buffer[2][RC_FRAME_LENGTH];
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define LENGTH 18
+#define LENGTH 18										//宏定义
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -62,14 +64,15 @@ uint8_t RxFlag = 0;
 float feedbackValue;
 float feedbackValue1;
 float targetValue = 0;
+int16_t Speed;
 
+//can
 uint32_t RxID;
 uint8_t RxLength = 8;
 uint8_t RxData[8];
 
-int16_t Speed;
-
-float alpha = 0.05; // 平滑因子
+// 平滑因子
+float alpha = 0.05; 
 
 QueueHandle_t QueueHandler;
 QueueHandle_t QueueprintHandler;
@@ -136,7 +139,7 @@ void MX_FREERTOS_Init(void) {
   /* Create the semaphores(s) */
   /* definition and creation of myBinarySem01 */
   osSemaphoreDef(myBinarySem01);
-  myBinarySem01Handle = osSemaphoreCreate(osSemaphore(myBinarySem01), 1);
+  myBinarySem01Handle = osSemaphoreCreate(osSemaphore(myBinarySem01), 1);			//信号量
 
   /* USER CODE BEGIN RTOS_SEMAPHORES */
   /* add semaphores, ... */
@@ -149,11 +152,7 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
   QueueHandler = xQueueCreate(20, 20);
-  if (QueueHandler == NULL)
-  {
-    printf("error");
-  }
-  QueueprintHandler = xQueueCreate(8, 4);
+  QueueprintHandler = xQueueCreate(8, 4);						//创建队列
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -190,7 +189,7 @@ void MX_FREERTOS_Init(void) {
  * @retval None
  */
 /* USER CODE END Header_StartDefaultTask */
-void StartDefaultTask(void const * argument)
+void StartDefaultTask(void const * argument)					//信号量
 {
   /* USER CODE BEGIN StartDefaultTask */
   uint32_t tick_1 = 0;
@@ -243,11 +242,6 @@ void DR16_control(void const * argument)
   uint8_t TxData[8] = {0};
   uint8_t TxData_1[8] = {0};
 
-  HAL_CAN_Start(&hcan1);
-  HAL_CAN_Start(&hcan2);
-
-  FilterInit();
-
   PID_Init(&pid_one, 3, 1, 5, 500, 800);
 
   float prev_ema = 0; // 初始 EMA �?????
@@ -273,7 +267,7 @@ void DR16_control(void const * argument)
 
     CAN2_Transmit(TxID, TxLength, TxData);
 
-    //	printf("%f,%f,%f\n", targetValue, ema_result,mypid.output);
+    //printf("%f,%f,%f\n", targetValue, ema_result,mypid.output);
     xQueueSend(QueueprintHandler, (uint8_t *)(void *)(&ema_result), 0);
 
     vTaskDelayUntil(&xLastWakeTime, 1);
@@ -298,7 +292,7 @@ void print_task(void const * argument)
     BaseType_t xStatues;
     float speed_;
 
-    xStatues = xQueueReceive(QueueprintHandler, (uint8_t *)(void *)&speed_, portMAX_DELAY);
+    xStatues = xQueueReceive(QueueprintHandler, (uint8_t *)(void *)&speed_, portMAX_DELAY);//接收数据
     if (xStatues == pdTRUE)
     {
       printf("%f,%f,%f\n", targetValue, speed_, pid_one.output);
@@ -333,7 +327,7 @@ void pitch_control(void const * argument)
 * @retval None
 */
 /* USER CODE END Header_Mpu_Get */
-void Mpu_Get(void const * argument)
+void Mpu_Get(void const * argument)			//dmp
 {
   /* USER CODE BEGIN Mpu_Get */
   /* Infinite loop */
@@ -349,7 +343,7 @@ void Mpu_Get(void const * argument)
 
 /* Private application code --------------------------------------------------*/
 /* USER CODE BEGIN Application */
-void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)				//串口中断回调函数
 {
   if (huart->Instance == USART2)
   {
@@ -357,7 +351,7 @@ void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
   }
 }
 
-void HAL_UART_IdleCpltCallback(UART_HandleTypeDef *huart)
+void HAL_UART_IdleCpltCallback(UART_HandleTypeDef *huart)			//空闲中断回调函数
 {
   BaseType_t xHigherPriorityTaskWoken = pdFALSE;
 

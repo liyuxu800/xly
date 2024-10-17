@@ -13,5 +13,6 @@ void CAN1_Transmit(uint32_t ID, uint8_t Length, uint8_t *Data);
 void CAN1_Receive(CAN_RxHeaderTypeDef rceStu, uint8_t *Data);
 void CAN2_Transmit(uint32_t ID, uint8_t Length, uint8_t *Data);
 void CAN2_Receive(CAN_RxHeaderTypeDef rceStu, uint8_t *Data);
+void HAL_CAN_RxFifo0GetDataCallback(CAN_HandleTypeDef *hcan,CAN_RxHeaderTypeDef rceStu,uint8_t *Data);
 
 #endif

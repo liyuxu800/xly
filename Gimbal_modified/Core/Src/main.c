@@ -30,6 +30,7 @@
 #include "task.h"
 #include "MPU6050.h"
 #include "inv_mpu.h"
+#include "mycan.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -73,12 +74,17 @@ int main(void)
 {
   /* USER CODE BEGIN 1 */
  	MPU_Init();
-	mpu_dmp_init();
+	mpu_dmp_init();												//使能Mpu和dmp
 	while(mpu_dmp_init())
 	{
 			MPU_Init();
 			mpu_dmp_init();
 	}
+	
+	HAL_CAN_Start(&hcan1);								//启动CAN
+  HAL_CAN_Start(&hcan2);
+	
+	FilterInit();													//配置过滤器
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/

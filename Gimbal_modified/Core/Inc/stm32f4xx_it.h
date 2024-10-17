@@ -66,7 +66,6 @@ void CAN2_RX1_IRQHandler(void);
 void CAN2_SCE_IRQHandler(void);
 /* USER CODE BEGIN EFP */
 void HAL_UART_IdleCpltCallback(UART_HandleTypeDef *huart);
-void HAL_CAN_RxFifo0GetDataCallback(CAN_HandleTypeDef *hcan,CAN_RxHeaderTypeDef rceStu,uint8_t *Data);
 /* USER CODE END EFP */
 
 #ifdef __cplusplus
