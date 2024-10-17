@@ -28,12 +28,12 @@
 /* USER CODE BEGIN Includes */
 #include "freertos.h"
 #include "task.h"
-
+#include "MPU6050.h"
+#include "inv_mpu.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
 
 /* USER CODE END PTD */
 
@@ -72,8 +72,13 @@ void MX_FREERTOS_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
-	
- 
+ 	MPU_Init();
+	mpu_dmp_init();
+	while(mpu_dmp_init())
+	{
+			MPU_Init();
+			mpu_dmp_init();
+	}
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/

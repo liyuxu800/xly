@@ -26,12 +26,18 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "string.h"
+#include "stdio.h"
+
 #include "mycan.h"
 #include "PID.h"
 #include "DR16_control.h"
-#include "stdio.h"
+
 #include "usart.h"
 #include "can.h"
+
+//mpu
+#include "MPU6050.h"
+#include "inv_mpu.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -46,10 +52,13 @@ extern volatile unsigned char sbus_rx_buffer[2][RC_FRAME_LENGTH];
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
+
+//DMA
 uint8_t RxBuffer[LENGTH];
 uint8_t RecCount = 0;
 uint8_t RxFlag = 0;
 
+//PID
 float feedbackValue;
 float feedbackValue1;
 float targetValue = 0;
@@ -64,6 +73,10 @@ float alpha = 0.05; // 平滑因子
 
 QueueHandle_t QueueHandler;
 QueueHandle_t QueueprintHandler;
+
+//mpu
+float mpu_pitch,mpu_roll,mpu_yaw;
+float mpu_gx,mpu_gy,mpu_gz;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -74,6 +87,7 @@ osThreadId defaultTaskHandle;
 osThreadId controlHandle;
 osThreadId Print_TaskHandle;
 osThreadId pitch_taskHandle;
+osThreadId Mpu_Get_TaskHandle;
 osSemaphoreId myBinarySem01Handle;
 
 /* Private function prototypes -----------------------------------------------*/
@@ -85,6 +99,7 @@ void StartDefaultTask(void const * argument);
 void DR16_control(void const * argument);
 void print_task(void const * argument);
 void pitch_control(void const * argument);
+void Mpu_Get(void const * argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
@@ -158,6 +173,10 @@ void MX_FREERTOS_Init(void) {
   osThreadDef(pitch_task, pitch_control, osPriorityIdle, 0, 256);
   pitch_taskHandle = osThreadCreate(osThread(pitch_task), NULL);
 
+  /* definition and creation of Mpu_Get_Task */
+  osThreadDef(Mpu_Get_Task, Mpu_Get, osPriorityIdle, 0, 128);
+  Mpu_Get_TaskHandle = osThreadCreate(osThread(Mpu_Get_Task), NULL);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
@@ -180,16 +199,16 @@ void StartDefaultTask(void const * argument)
   /* Infinite loop */
   for (;;)
   {
-    tick_2 = HAL_GetTick(); // 获取当前时刻的tick�???
+    tick_2 = HAL_GetTick(); // 获取当前时刻的tick�?????
     if (xSemaphoreTake(myBinarySem01Handle, 100) == pdTRUE)
       tick_1 = HAL_GetTick();        // 再次获取
     tick_interval = tick_1 - tick_2; // 判断两次tick之间的时间差
 
-    if (tick_interval <= 100) // 如果小于等于100，说明在等待时间内获取了信号�???
+    if (tick_interval <= 100) // 如果小于等于100，说明在等待时间内获取了信号�?????
     {
       RemoteDataProcess((uint8_t *)RxBuffer);
     }
-    else // 如果大于100，说明为超时�???�???
+    else // 如果大于100，说明为超时�?????�?????
     {
       memset(&RC_CtrlData, 0, sizeof(RC_CtrlData));
     }
@@ -213,6 +232,8 @@ void DR16_control(void const * argument)
   TickType_t xLastWakeTime;
   xLastWakeTime = xTaskGetTickCount();
 
+  HAL_CAN_ActivateNotification(&hcan2, CAN_IT_RX_FIFO0_MSG_PENDING);
+
   __HAL_UART_ENABLE_IT(&huart2, UART_IT_IDLE);                // 使能中断
   HAL_UART_Receive_DMA(&huart2, (uint8_t *)RxBuffer, LENGTH); // 弿启DMA中断
 
@@ -229,7 +250,7 @@ void DR16_control(void const * argument)
 
   PID_Init(&pid_one, 3, 1, 5, 500, 800);
 
-  float prev_ema = 0; // 初始 EMA �???
+  float prev_ema = 0; // 初始 EMA �?????
 
   /* Infinite loop */
   for (;;)
@@ -238,16 +259,16 @@ void DR16_control(void const * argument)
 
     targetValue = RC_CtrlData.rc.ch0;
 
-    CAN2_Receive(&RxID, &RxLength, RxData);
+    //CAN2_Receive(&RxID, &RxLength, RxData);
     Speed = (RxData[2] << 8) | RxData[3];
 
-    feedbackValue = Speed; // 这里获取到被控对象的反馈�???
+    feedbackValue = Speed; // 这里获取到被控对象的反馈�?????
 
     float ema_result = emaFilter(feedbackValue, &prev_ema, alpha);
 
     PID_Calc(&pid_one, targetValue, ema_result); // 进行PID计算，结果在output成员变量
 
-    TxData[0] = (((int16_t)pid_one.output) >> 8) & 0xff; // 右移八位是因�???16位数据只有后面八位可以存�???8位的数组
+    TxData[0] = (((int16_t)pid_one.output) >> 8) & 0xff; // 右移八位是因�?????16位数据只有后面八位可以存�?????8位的数组
     TxData[1] = ((int16_t)pid_one.output) & 0xff;
 
     CAN2_Transmit(TxID, TxLength, TxData);
@@ -303,6 +324,27 @@ void pitch_control(void const * argument)
     osDelay(1);
   }
   /* USER CODE END pitch_control */
+}
+
+/* USER CODE BEGIN Header_Mpu_Get */
+/**
+* @brief Function implementing the Mpu_Get_Task thread.
+* @param argument: Not used
+* @retval None
+*/
+/* USER CODE END Header_Mpu_Get */
+void Mpu_Get(void const * argument)
+{
+  /* USER CODE BEGIN Mpu_Get */
+  /* Infinite loop */
+  for(;;)
+  {
+    mpu_dmp_get_data(&mpu_pitch,&mpu_roll,&mpu_yaw);
+		MPU_Get_Gyroscope(&mpu_gx,&mpu_gy,&mpu_gz);		
+		printf("pitch %f, roll = %f, yaw = %f\r\n",mpu_pitch,mpu_roll ,mpu_yaw);
+    vTaskDelay(1);
+  }
+  /* USER CODE END Mpu_Get */
 }
 
 /* Private application code --------------------------------------------------*/

@@ -410,6 +410,11 @@
               <FilePath>..\Core\Src\mycan.c</FilePath>
             </File>
             <File>
+              <FileName>PID.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\PID.c</FilePath>
+            </File>
+            <File>
               <FileName>main.c</FileName>
               <FileType>1</FileType>
               <FilePath>../Core/Src/main.c</FilePath>
@@ -659,9 +664,29 @@
               <FilePath>../Core/Src/stm32f4xx_hal_timebase_tim.c</FilePath>
             </File>
             <File>
-              <FileName>PID.c</FileName>
+              <FileName>IIC.c</FileName>
               <FileType>1</FileType>
-              <FilePath>..\Core\Src\PID.c</FilePath>
+              <FilePath>..\Core\Src\IIC.c</FilePath>
+            </File>
+            <File>
+              <FileName>inv_mpu.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\inv_mpu.c</FilePath>
+            </File>
+            <File>
+              <FileName>inv_mpu_dmp_motion_driver.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\inv_mpu_dmp_motion_driver.c</FilePath>
+            </File>
+            <File>
+              <FileName>MPU6050.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\MPU6050.c</FilePath>
+            </File>
+            <File>
+              <FileName>Wire.c</FileName>
+              <FileType>1</FileType>
+              <FilePath>..\Core\Src\Wire.c</FilePath>
             </File>
           </Files>
         </Group>
