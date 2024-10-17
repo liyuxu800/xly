@@ -275,7 +275,7 @@ void USART2_IRQHandler(void)
   /* USER CODE BEGIN USART2_IRQn 1 */
 	if(__HAL_UART_GET_FLAG(&huart2,UART_FLAG_IDLE) != RESET)     //判断中断标志位，总线是否空闲
 {
-	__HAL_UART_CLEAR_IDLEFLAG(&huart2);										//清除中断标志�?
+	__HAL_UART_CLEAR_IDLEFLAG(&huart2);										//清除中断标志�??
 	HAL_UART_IdleCpltCallback(&huart2);										//调用回调函数
 	
 }

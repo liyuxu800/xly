@@ -1,4 +1,23 @@
 *** Using Compiler 'V5.06 update 7 (build 960)', folder: 'D:\sofeware\ARM_MDK\ARM\ARM_Compiler_5.06u7\Bin'
 Build target 'Gimbal'
-"DR16\DR16.axf" - 0 Error(s), 0 Warning(s).
-Build Time Elapsed:  00:00:01
+assembling startup_stm32f405xx.s...
+compiling PID.c...
+compiling main.c...
+../Core/Src/main.c(115): error:  #20: identifier "RxBuffer" is undefined
+    HAL_UART_Receive_DMA(&huart2, (uint8_t *)RxBuffer, LENGTH); // 弿启DMA中断
+../Core/Src/main.c(115): error:  #20: identifier "LENGTH" is undefined
+    HAL_UART_Receive_DMA(&huart2, (uint8_t *)RxBuffer, LENGTH); // 弿启DMA中断
+../Core/Src/main.c: 0 warnings, 2 errors
+compiling freertos.c...
+../Core/Src/freertos.c(279): error:  #20: identifier "RxData" is undefined
+      Speed_yaw = (RxData[2] << 8) | RxData[3]; // 读取实际速度
+../Core/Src/freertos.c(384): error:  #20: identifier "RxData" is undefined
+      Speed_FrictionWheel = (RxData[2] << 8) | RxData[3];
+../Core/Src/freertos.c(388): error:  #20: identifier "prev_ema" is undefined
+      float ema_result = emaFilter(feedbackValue_FrictionWheel, &prev_ema, alpha);
+../Core/Src/freertos.c(392): error:  #20: identifier "TxData" is undefined
+      TxData[0] = (((int16_t)pid_FrictionWheel_one.output) >> 8) & 0xff; // 右移八位是因�?16位数据只有后面八位可以存�?8位的数组
+../Core/Src/freertos.c: 0 warnings, 4 errors
+"DR16\DR16.axf" - 6 Error(s), 0 Warning(s).
+Target not created.
+Build Time Elapsed:  00:00:02

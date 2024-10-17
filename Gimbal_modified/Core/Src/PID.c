@@ -1,9 +1,9 @@
 #include "stm32f4xx.h"
 #include "PID.h"
 
-PID pid_one = {0};
-CascadePID pid_two = {0}; //创建串级PID结构体变�?
-AngleStructDef angle_update = {0};
+// PID pid_one = {0};
+// CascadePID pid_two = {0}; //创建串级PID结构体变�?
+// AngleStructDef angle_update = {0};
 
 //用于初始化pid参数的函�?
 void PID_Init(PID *pid, float p, float i, float d, float maxI, float maxOut)

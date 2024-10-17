@@ -1,20 +1,20 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * @file           : main.c
-  * @brief          : Main program body
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2024 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * @file           : main.c
+ * @brief          : Main program body
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2024 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
@@ -63,7 +63,7 @@ void MX_FREERTOS_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
- 
+
 /* USER CODE END 0 */
 
 /**
@@ -73,18 +73,7 @@ void MX_FREERTOS_Init(void);
 int main(void)
 {
   /* USER CODE BEGIN 1 */
- 	MPU_Init();
-	mpu_dmp_init();												//使能Mpu和dmp
-	while(mpu_dmp_init())
-	{
-			MPU_Init();
-			mpu_dmp_init();
-	}
-	
-	HAL_CAN_Start(&hcan1);								//启动CAN
-  HAL_CAN_Start(&hcan2);
-	
-	FilterInit();													//配置过滤器
+
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -93,7 +82,18 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+  MPU_Init();
+  mpu_dmp_init(); // 使能Mpu和dmp
+  while (mpu_dmp_init())
+  {
+    MPU_Init();
+    mpu_dmp_init();
+  }
 
+  HAL_CAN_Start(&hcan1); // 启动CAN
+  HAL_CAN_Start(&hcan2);
+
+  FilterInit(); // 配置过滤�??
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -111,7 +111,8 @@ int main(void)
   MX_UART5_Init();
   MX_CAN2_Init();
   /* USER CODE BEGIN 2 */
-
+  __HAL_UART_ENABLE_IT(&huart2, UART_IT_IDLE);                // 使能中断
+  HAL_UART_Receive_DMA(&huart2, (uint8_t *)RxBuffer, LENGTH); // 弿启DMA中断
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in freertos.c) */
