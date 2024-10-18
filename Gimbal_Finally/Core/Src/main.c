@@ -20,22 +20,27 @@
 #include "main.h"
 #include "cmsis_os.h"
 #include "can.h"
+#include "dma.h"
 #include "usart.h"
 #include "gpio.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "freertos.h"
+#include "task.h"
+#include "MPU6050.h"
+#include "inv_mpu.h"
+#include "mycan.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+#define LENGTH 100 // 宏定�????
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+extern uint8_t RxBuffer[];
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -77,7 +82,21 @@ int main(void)
   HAL_Init();
 
   /* USER CODE BEGIN Init */
+  MPU_Init();
+  mpu_dmp_init(); // 使能Mpu和dmp
+  while (mpu_dmp_init())
+  {
+    MPU_Init();
+    mpu_dmp_init();
+  }
 
+  HAL_CAN_Start(&hcan1); // 启动CAN
+  HAL_CAN_Start(&hcan2);
+
+  FilterInit(); // 配置过滤�???
+
+  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING); // 使能can接收中断
+  HAL_CAN_ActivateNotification(&hcan2, CAN_IT_RX_FIFO0_MSG_PENDING); // 使能can接收中断
   /* USER CODE END Init */
 
   /* Configure the system clock */
@@ -89,12 +108,14 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
+  MX_DMA_Init();
   MX_CAN1_Init();
   MX_CAN2_Init();
   MX_UART5_Init();
   MX_USART2_UART_Init();
   /* USER CODE BEGIN 2 */
-
+  __HAL_UART_ENABLE_IT(&huart2, UART_IT_IDLE);                // 使能中断
+  HAL_UART_Receive_DMA(&huart2, (uint8_t *)RxBuffer, LENGTH); // 弿启DMA中断
   /* USER CODE END 2 */
 
   /* Call init function for freertos objects (in freertos.c) */

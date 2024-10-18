@@ -1,20 +1,20 @@
 /* USER CODE BEGIN Header */
 /**
-  ******************************************************************************
-  * File Name          : freertos.c
-  * Description        : Code for freertos applications
-  ******************************************************************************
-  * @attention
-  *
-  * Copyright (c) 2024 STMicroelectronics.
-  * All rights reserved.
-  *
-  * This software is licensed under terms that can be found in the LICENSE file
-  * in the root directory of this software component.
-  * If no LICENSE file comes with this software, it is provided AS-IS.
-  *
-  ******************************************************************************
-  */
+ ******************************************************************************
+ * File Name          : freertos.c
+ * Description        : Code for freertos applications
+ ******************************************************************************
+ * @attention
+ *
+ * Copyright (c) 2024 STMicroelectronics.
+ * All rights reserved.
+ *
+ * This software is licensed under terms that can be found in the LICENSE file
+ * in the root directory of this software component.
+ * If no LICENSE file comes with this software, it is provided AS-IS.
+ *
+ ******************************************************************************
+ */
 /* USER CODE END Header */
 
 /* Includes ------------------------------------------------------------------*/
@@ -25,22 +25,162 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "string.h"
+#include "stdio.h"
 
+// 自己移植的函�??????
+#include "mycan.h"
+#include "PID.h"
+#include "DR16_control.h"
+
+// 外设
+#include "usart.h"
+#include "can.h"
+
+// freertos
+#include "queue.h"
+
+// mpu
+#include "MPU6050.h"
+#include "inv_mpu.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+extern volatile unsigned char sbus_rx_buffer[2][RC_FRAME_LENGTH];
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define LENGTH 100 // 宏定�??????
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 
+// mpu
+float mpu_pitch, mpu_roll, mpu_yaw;
+float mpu_gx, mpu_gy, mpu_gz;
+
+// DMA
+uint8_t RxBuffer[LENGTH];
+uint8_t RecCount = 0;
+uint8_t RxFlag = 0;
+
+// yaw
+typedef struct
+{
+  //  yaw_pid
+  CascadePID pid_two;
+  // yaw_Tx
+  uint32_t TxID;
+  uint8_t TxLength;
+  uint8_t TxData[8];
+  // yaw_pid
+  float feedbackValue;
+  float feedbackValue1;
+  float targetValue;
+  int16_t Speed;
+  // yaw_Rx
+  uint32_t RxID;
+  uint8_t RxLength;
+  uint8_t RxData[8];
+  // yaw_Measurement
+  uint16_t encoder;
+  float Angle;
+} YawStructDef;
+YawStructDef YawStruct = {0};
+
+// FrictionWheel
+typedef struct
+{
+  // FrictionWheel_pid_L
+  PID pid_one_L;
+  // FrictionWheel_Tx_L
+  uint32_t TxID_L;
+  uint8_t TxLength_L;
+  uint8_t TxData_L[8];
+  // FrictionWheel_pid_L
+  float feedbackValue_L;
+  float feedbackValue1_L;
+  float targetValue_L;
+  int16_t Speed_L;
+  // FrictionWheel_Rx_L
+  uint32_t RxID_L; // 接受�??
+  uint8_t RxLength_L;
+  uint8_t RxData_L[8];
+  // FrictionWheel_pid_R
+  PID pid_one_R;
+  // FrictionWheel_Tx_R
+  uint32_t TxID_R;
+  uint8_t TxLength_R;
+  uint8_t TxData_R[8] = {0};
+  // FrictionWheel_pid_R
+  float feedbackValue_R;
+  float feedbackValue1_R;
+  float targetValue_R;
+  int16_t Speed_R;
+  // FrictionWheel_Rx_R
+  uint32_t RxID_R; // 接受�??
+  uint8_t RxLength_R;
+  uint8_t RxData_R[8];
+} FWStructDef;
+FWStructDef FWStruct = {0};
+
+// pitch
+typedef struct
+{
+  // pitch_pid
+  CascadePID pid_two;
+  // pitch_Tx
+  uint32_t TxID;
+  uint8_t TxLength;
+  uint8_t TxDatal[8];
+  // pitch_pid
+  float feedbackValue;
+  float feedbackValue1;
+  float targetValue;
+  int16_t Speed;
+  // pitch_Rx
+  uint32_t RxID; // 接受�??
+  uint8_t RxLength;
+  uint8_t RxData[8];
+  // pitch_Measurement
+  uint16_t encoder;
+  float Angle;
+} pitchStructDef;
+pitchStructDef pitchStruct = {0};
+
+// dial
+typedef struct
+{
+  // dial_pid
+  CascadePID pid_two;
+  // dial_Tx
+  uint32_t TxID;
+  uint8_t TxLength;
+  uint8_t TxDatal[8];
+  // dial_pid
+  float feedbackValue;
+  float feedbackValue1;
+  float targetValue;
+  int16_t Speed;
+  // dial_Rx
+  uint32_t RxID; // 接受�??
+  uint8_t RxLength;
+  uint8_t RxData[8];
+  // dial_Measurement
+  uint16_t encoder;
+  float Angle;
+} dialStructDef;
+dialStructDef dialStruct = {0};
+
+// 平滑因子
+float alpha = 0.05;
+
+// 队列
+QueueHandle_t QueueSemaYawHandler;
+QueueHandle_t QueueprintHandler;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -49,6 +189,7 @@
 /* USER CODE END Variables */
 osThreadId CAN_Transmit_TaHandle;
 osThreadId Semaphore_TaskHandle;
+osThreadId PID_Calculate_THandle;
 osSemaphoreId Semaphone_ProtectionHandle;
 
 /* Private function prototypes -----------------------------------------------*/
@@ -56,19 +197,20 @@ osSemaphoreId Semaphone_ProtectionHandle;
 
 /* USER CODE END FunctionPrototypes */
 
-void CAN_Transmit(void const * argument);
-void Semaphore(void const * argument);
+void CAN_Transmit(void const *argument);
+void Semaphore(void const *argument);
+void PID_Calculation(void const *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /* GetIdleTaskMemory prototype (linked to static allocation support) */
-void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize );
+void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize);
 
 /* USER CODE BEGIN GET_IDLE_TASK_MEMORY */
 static StaticTask_t xIdleTaskTCBBuffer;
 static StackType_t xIdleStack[configMINIMAL_STACK_SIZE];
 
-void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize )
+void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize)
 {
   *ppxIdleTaskTCBBuffer = &xIdleTaskTCBBuffer;
   *ppxIdleTaskStackBuffer = &xIdleStack[0];
@@ -78,11 +220,12 @@ void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackTy
 /* USER CODE END GET_IDLE_TASK_MEMORY */
 
 /**
-  * @brief  FreeRTOS initialization
-  * @param  None
-  * @retval None
-  */
-void MX_FREERTOS_Init(void) {
+ * @brief  FreeRTOS initialization
+ * @param  None
+ * @retval None
+ */
+void MX_FREERTOS_Init(void)
+{
   /* USER CODE BEGIN Init */
 
   /* USER CODE END Init */
@@ -106,6 +249,8 @@ void MX_FREERTOS_Init(void) {
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
+  QueueSemaYawHandler = xQueueCreate(20, 20);
+  QueueprintHandler = xQueueCreate(8, 4); // 创建队列
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -117,46 +262,160 @@ void MX_FREERTOS_Init(void) {
   osThreadDef(Semaphore_Task, Semaphore, osPriorityIdle, 0, 128);
   Semaphore_TaskHandle = osThreadCreate(osThread(Semaphore_Task), NULL);
 
+  /* definition and creation of PID_Calculate_T */
+  osThreadDef(PID_Calculate_T, PID_Calculation, osPriorityIdle, 0, 1280);
+  PID_Calculate_THandle = osThreadCreate(osThread(PID_Calculate_T), NULL);
+
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
-
 }
 
 /* USER CODE BEGIN Header_CAN_Transmit */
 /**
-  * @brief  Function implementing the CAN_Transmit_Ta thread.
-  * @param  argument: Not used
-  * @retval None
-  */
+ * @brief  Function implementing the CAN_Transmit_Ta thread.
+ * @param  argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_CAN_Transmit */
-void CAN_Transmit(void const * argument)
+void CAN_Transmit(void const *argument)
 {
   /* USER CODE BEGIN CAN_Transmit */
+  TickType_t xLastWakeTime;
+  xLastWakeTime = xTaskGetTickCount(); // 定义类型，使用vTaskDelayUntil
+
+  // 摩擦�?
+  FWStruct.TxID_L = 0x200;
+  FWStruct.TxLength_L = 8;
+  FWStruct.RxLength_L = 8;
+  FWStruct.TxID_R = 0x200;
+  FWStruct.TxLength_R = 8;
+  FWStruct.RxLength_R = 8;
+
+  // 拨盘
+  dialStruct.TxID = 0x200;
+  dialStruct.TxLength = 8;
+  dialStruct.RxLength = 8;
+
+  //yaw
+  YawStruct.TxID = 0x2FF;
+  YawStruct.TxLength = 8;
+  YawStruct.RxLength = 8;
+
+  //
+
   /* Infinite loop */
-  for(;;)
+  for (;;)
   {
-    osDelay(1);
+    vTaskDelayUntil(&xLastWakeTime, 1); // 延时
   }
   /* USER CODE END CAN_Transmit */
 }
 
 /* USER CODE BEGIN Header_Semaphore */
 /**
-* @brief Function implementing the Semaphore_Task thread.
-* @param argument: Not used
-* @retval None
-*/
+ * @brief Function implementing the Semaphore_Task thread.
+ * @param argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_Semaphore */
-void Semaphore(void const * argument)
+void Semaphore(void const *argument)
 {
   /* USER CODE BEGIN Semaphore */
+  uint32_t tick_1 = 0;
+  uint32_t tick_2 = 0;
+  uint32_t tick_interval = 0;
   /* Infinite loop */
-  for(;;)
+  for (;;)
   {
-    osDelay(1);
+    tick_2 = HAL_GetTick(); // 获取当前时刻的tick�??????????
+    if (xSemaphoreTake(Semaphone_ProtectionHandle, 100) == pdTRUE)
+      tick_1 = HAL_GetTick();        // 再次获取
+    tick_interval = tick_1 - tick_2; // 判断两次tick之间的时间差
+
+    if (tick_interval <= 100) // 如果小于等于100，说明在等待时间内获取了信号�??????????
+    {
+      RemoteDataProcess((uint8_t *)RxBuffer);
+    }
+    else // 如果大于100，说明为超时�??????????�??????????
+    {
+      memset(&RC_CtrlData, 0, sizeof(RC_CtrlData));
+    }
+    xQueueSend(QueueSemaYawHandler, &RC_CtrlData, 0);
+
+    vTaskDelay(1);
   }
   /* USER CODE END Semaphore */
+}
+
+/* USER CODE BEGIN Header_PID_Calculation */
+/**
+ * @brief Function implementing the PID_Calculate_T thread.
+ * @param argument: Not used
+ * @retval None
+ */
+/* USER CODE END Header_PID_Calculation */
+void PID_Calculation(void const *argument)
+{
+  /* USER CODE BEGIN PID_Calculation */
+
+  // 摩擦轮pid初始�?
+  PID_Init(&FWStruct.pid_one_L, 3, 1, 5, 20000, 15000);
+  PID_Init(&FWStruct.pid_one_R, 3, 1, 5, 20000, 15000);
+
+  // 拨盘初始化
+  PID_Init(&dialStruct.pid_two.inner, 30, 0, 0, 0, 25000); // 初始化内环参�?
+  PID_Init(&dialStruct.pid_two.outer, 70, 0, 0, 0, 25000); // 初始化外环参�?
+
+  // Yaw初始化
+  PID_Init(&YawStruct.pid_two.inner, 30, 0, 0, 0, 25000); // 初始化内环参�?
+  PID_Init(&YawStruct.pid_two.outer, 70, 0, 0, 0, 25000); // 初始化外环参�?
+
+  /* Infinite loop */
+  for (;;)
+  {
+    // 摩擦轮任务获取对应数值，并且进行pid计算得到Output
+    Can1_Receive_Judgment(0x203, FWStruct.RxData_L);
+    Can1_Receive_Judgment(0x202, FWStruct.RxData_R);
+    FWStruct.feedbackValue_L = PID_One_Calculation(&FWStruct.pid_one_L, FWStruct.targetValue_L, FWStruct.RxData_L);
+    FWStruct.feedbackValue_R = PID_One_Calculation(&FWStruct.pid_one_R, FWStruct.targetValue_R, FWStruct.RxData_R);
+
+    TxData_L[4] = (((int16_t)FWStruct.pid_one_L.output) >> 8) & 0xff; // 右移八位是因�??16位数据只有后面八位可以存�??8位的数组
+    TxData_L[5] = ((int16_t)FWStruct.pid_one_L.output) & 0xff;
+    TxData_R[2] = (((int16_t)FWStruct.pid_one_R.output) >> 8) & 0xff; // 右移八位是因�??16位数据只有后面八位可以存�??8位的数组
+    TxData_R[3] = ((int16_t)FWStruct.pid_one_R.output) & 0xff;
+
+    // 拨盘任务获取对应数值，并且进行pid计算得到Output
+    Can1_Receive_Judgment(0x201, dialStruct.RxData);
+    dialStruct.encoder = (dialStruct.RxData[0] << 8) | dialStruct.RxData[1];
+    dialStruct.Angle = dialStruct.encoder * 360.0f / 8192.0f;
+    dialStruct.Speed = (dialStruct.RxData[2] << 8) | dialStruct.RxData[3];
+
+    dialStruct.outerFeedback = dialStruct.Angle;
+    dialStruct.innerFeedback = dialStruct.Speed;                                                                      // 获取内环反馈�?
+    PID_CascadeCalc(&dialStruct.pid_two, dialStruct.outerTarget, dialStruct.outerFeedback, dialStruct.innerFeedback); // 进行PID计算
+
+    dialStruct.TxData[0] = (((int16_t)dialStruct.pid_two.output) >> 8) & 0xff; // 右移八位是因�?16位数据只有后面八位可以存�?8位的数组
+    dialStruct.TxData[1] = ((int16_t)dialStruct.pid_two.output) & 0xff;
+
+    // yaw任务获取对应数值，并且进行pid计算得到Output
+    Can1_Receive_Judgment(0x209, YawStruct.RxData);
+    YawStruct.encoder = (YawStruct.RxData[0] << 8) | YawStruct.RxData[1];
+    YawStruct.Angle = YawStruct.encoder * 360.0f / 8192.0f;
+    YawStruct.Speed = (YawStruct.RxData[2] << 8) | YawStruct.RxData[3];
+
+    YawStruct.outerFeedback = YawStruct.Angle;
+    YawStruct.innerFeedback = YawStruct.Speed;                                                                      // 获取内环反馈�?
+    PID_CascadeCalc(&YawStruct.pid_two, YawStruct.outerTarget, YawStruct.outerFeedback, YawStruct.innerFeedback); // 进行PID计算
+
+    YawStruct.TxData[0] = (((int16_t)YawStruct.pid_two.output) >> 8) & 0xff; // 右移八位是因�?16位数据只有后面八位可以存�?8位的数组
+    YawStruct.TxData[1] = ((int16_t)YawStruct.pid_two.output) & 0xff;
+
+    //pitch任务获取对应数值，并且进行pid计算得到Output
+
+    vTaskDelay(1);
+  }
+  /* USER CODE END PID_Calculation */
 }
 
 /* Private application code --------------------------------------------------*/
