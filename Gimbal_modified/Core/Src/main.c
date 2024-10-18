@@ -35,12 +35,12 @@
 
 /* Private typedef -----------------------------------------------------------*/
 /* USER CODE BEGIN PTD */
-
+#define LENGTH 100 // 宏定�???
 /* USER CODE END PTD */
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+extern uint8_t RxBuffer[];
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -93,7 +93,7 @@ int main(void)
   HAL_CAN_Start(&hcan1); // 启动CAN
   HAL_CAN_Start(&hcan2);
 
-  FilterInit(); // 配置过滤�??
+  FilterInit(); // 配置过滤�??
   /* USER CODE END Init */
 
   /* Configure the system clock */

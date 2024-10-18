@@ -37,6 +37,9 @@
 #include "usart.h"
 #include "can.h"
 
+// freertos
+#include "queue.h"
+
 // mpu
 #include "MPU6050.h"
 #include "inv_mpu.h"
@@ -54,13 +57,22 @@ extern volatile unsigned char sbus_rx_buffer[2][RC_FRAME_LENGTH];
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
+// mpu
+typedef struct
+{
+  float mpu_pitch, mpu_roll, mpu_yaw;
+  float mpu_gx, mpu_gy, mpu_gz;
+} MpuStructDef;
+MpuStructDef MpuStruct = {0};
+MpuStructDef MpuStructReceive = {0};
 
 // DMA
 uint8_t RxBuffer[LENGTH];
 uint8_t RecCount = 0;
 uint8_t RxFlag = 0;
 
-// yaw_pid
+// yaw
+//  yaw_pid
 PID pid_yaw_one = {0};
 // yaw_Tx
 uint32_t TxID_yaw = 0x2FF;
@@ -75,6 +87,8 @@ int16_t Speed_yaw;
 uint32_t RxID_yaw = {0};
 uint8_t RxLength_yaw = 8;
 uint8_t RxData_yaw[8];
+// yaw_Queue_Receive
+float yaw_Queue_Receive = 0;
 
 // FrictionWheel_pid
 PID pid_FrictionWheel_one = {0};
@@ -92,15 +106,64 @@ uint32_t RxID_FrictionWheel; // 接受�?
 uint8_t RxLength_FrictionWheel = 8;
 uint8_t RxData_FrictionWheel[8];
 
+// pitch
+typedef struct
+{
+  // pitch_pid
+  CascadePID pid_two;
+  // pitch_Tx
+  uint32_t TxID;
+  uint8_t TxLength;
+  uint8_t TxDatal[8];
+  // pitch_pid
+  float feedbackValue;
+  float feedbackValue1;
+  float targetValue;
+  int16_t Speed;
+  // pitch_Rx
+  uint32_t RxID; // 接受�?
+  uint8_t RxLength;
+  uint8_t RxData[8];
+  // pitch_Measurement
+  uint16_t encoder;
+  float Angle;
+  // Pitch_Queue_Receive
+  float Pitch_Queue_Receive;
+} pitchStructDef;
+pitchStructDef pitchStruct = {0};
+
+// dial
+typedef struct
+{
+  // dial_pid
+  CascadePID pid_two;
+  // dial_Tx
+  uint32_t TxID;
+  uint8_t TxLength;
+  uint8_t TxDatal[8];
+  // dial_pid
+  float feedbackValue;
+  float feedbackValue1;
+  float targetValue;
+  int16_t Speed;
+  // dial_Rx
+  uint32_t RxID; // 接受�?
+  uint8_t RxLength;
+  uint8_t RxData[8];
+  // dial_Measurement
+  uint16_t encoder;
+  float Angle;
+} dialStructDef;
+dialStructDef dialStruct = {0};
+
 // 平滑因子
 float alpha = 0.05;
 
+// 队列
 QueueHandle_t QueueHandler;
 QueueHandle_t QueueprintHandler;
-
-// mpu
-float mpu_pitch, mpu_roll, mpu_yaw;
-float mpu_gx, mpu_gy, mpu_gz;
+QueueHandle_t QueueMpuYawHandler;
+QueueHandle_t QueueMpuPitchHandler;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -121,18 +184,18 @@ osSemaphoreId myBinarySem01Handle;
 
 /* USER CODE END FunctionPrototypes */
 
-void Semaphore(void const * argument);
-void yaw_control(void const * argument);
-void print_task(void const * argument);
-void pitch_control(void const * argument);
-void Mpu_Get(void const * argument);
-void FrictionWheel_Control(void const * argument);
-void dial_control(void const * argument);
+void Semaphore(void const *argument);
+void yaw_control(void const *argument);
+void print_task(void const *argument);
+void pitch_control(void const *argument);
+void Mpu_Get(void const *argument);
+void FrictionWheel_Control(void const *argument);
+void dial_control(void const *argument);
 
 void MX_FREERTOS_Init(void); /* (MISRA C 2004 rule 8.1) */
 
 /* GetIdleTaskMemory prototype (linked to static allocation support) */
-void vApplicationGetIdleTaskMemory( StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize );
+void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer, StackType_t **ppxIdleTaskStackBuffer, uint32_t *pulIdleTaskStackSize);
 
 /* USER CODE BEGIN GET_IDLE_TASK_MEMORY */
 static StaticTask_t xIdleTaskTCBBuffer;
@@ -148,11 +211,12 @@ void vApplicationGetIdleTaskMemory(StaticTask_t **ppxIdleTaskTCBBuffer, StackTyp
 /* USER CODE END GET_IDLE_TASK_MEMORY */
 
 /**
-  * @brief  FreeRTOS initialization
-  * @param  None
-  * @retval None
-  */
-void MX_FREERTOS_Init(void) {
+ * @brief  FreeRTOS initialization
+ * @param  None
+ * @retval None
+ */
+void MX_FREERTOS_Init(void)
+{
   /* USER CODE BEGIN Init */
 
   /* USER CODE END Init */
@@ -178,6 +242,8 @@ void MX_FREERTOS_Init(void) {
   /* add queues, ... */
   QueueHandler = xQueueCreate(20, 20);
   QueueprintHandler = xQueueCreate(8, 4); // 创建队列
+  QueueMpuYawHandler = xQueueCreate(4, 4);
+  QueueMpuPitchHandler = xQueueCreate(4, 4);
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -212,7 +278,6 @@ void MX_FREERTOS_Init(void) {
   /* USER CODE BEGIN RTOS_THREADS */
   /* add threads, ... */
   /* USER CODE END RTOS_THREADS */
-
 }
 
 /* USER CODE BEGIN Header_Semaphore */
@@ -222,7 +287,7 @@ void MX_FREERTOS_Init(void) {
  * @retval None
  */
 /* USER CODE END Header_Semaphore */
-void Semaphore(void const * argument)
+void Semaphore(void const *argument)
 {
   /* USER CODE BEGIN Semaphore */
   uint32_t tick_1 = 0;
@@ -258,11 +323,13 @@ void Semaphore(void const * argument)
  * @retval None
  */
 /* USER CODE END Header_yaw_control */
-void yaw_control(void const * argument)
+void yaw_control(void const *argument)
 {
   /* USER CODE BEGIN yaw_control */
   TickType_t xLastWakeTime;
   xLastWakeTime = xTaskGetTickCount();
+
+  xQueueReceive(QueueMpuYawHandler, (uint8_t *)&yaw_Queue_Receive, 0);
 
   HAL_CAN_ActivateNotification(&hcan2, CAN_IT_RX_FIFO0_MSG_PENDING); // 使能can接收中断
 
@@ -304,7 +371,7 @@ void yaw_control(void const * argument)
  * @retval None
  */
 /* USER CODE END Header_print_task */
-void print_task(void const * argument)
+void print_task(void const *argument)
 {
   /* USER CODE BEGIN print_task */
   /* Infinite loop */
@@ -330,13 +397,47 @@ void print_task(void const * argument)
  * @retval None
  */
 /* USER CODE END Header_pitch_control */
-void pitch_control(void const * argument)
+void pitch_control(void const *argument)
 {
   /* USER CODE BEGIN pitch_control */
+  pitchStruct.TxID = 0x1FF;           //发送ID
+  pitchStruct.TxLength = 8;
+  pitchStruct.RxLength = 8;
+
+  xQueueReceive(QueueMpuPitchHandler, (uint8_t *)&pitchStruct.Pitch_Queue_Receive, 0);  //接收pitch值队列
+
+  TickType_t xLastWakeTime;
+  xLastWakeTime = xTaskGetTickCount(); // 定义类型，使用vTaskDelayUntil
+
+  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING); // 使能can接收中断
+
+  PID_Init(&pitchStruct.pid_two.inner, 30, 0, 0, 0, 25000); // 初始化内环参�?
+  PID_Init(&pitchStruct.pid_two.outer, 70, 0, 0, 0, 25000); // 初始化外环参�?
+
   /* Infinite loop */
   for (;;)
   {
-    osDelay(1);
+    pitchStruct.encoder = (RxData[0] << 8) | RxData[1];
+    pitchStruct.Angle = pitchStruct.encoder * 360.0f / 8192.0f;
+    pitchStruct.Speed = (RxData[2] << 8) | RxData[3];
+
+    pitchStruct.outerFeedback = pitchStruct.Angle;
+
+    pitchStruct.innerFeedback = pitchStruct.Speed;                                                                        // 获取内环反馈�?
+    PID_CascadeCalc(&pitchStruct.pid_two, pitchStruct.outerTarget, pitchStruct.outerFeedback, pitchStruct.innerFeedback); // 进行PID计算
+
+    TxData[0] = (((int16_t)pid_two.output) >> 8) & 0xff; // 右移八位是因�?16位数据只有后面八位可以存�?8位的数组
+    TxData[1] = ((int16_t)pid_two.output) & 0xff;
+
+    CAN1_Transmit(pitchStruct.TxID, pitchStruct.TxLength, pitchStruct.TxData);
+
+    // tx_data.data[0] = outerFeedback;
+    // tx_data.data[1] = outerTarget;
+    // tx_data.data[2] = pid_two.output / 100.0f;
+
+    // xQueueSend(QueueHandler, (uint8_t *)&tx_data, 0);
+
+    vTaskDelayUntil(&xLastWakeTime, 1); // 延时
   }
   /* USER CODE END pitch_control */
 }
@@ -348,15 +449,17 @@ void pitch_control(void const * argument)
  * @retval None
  */
 /* USER CODE END Header_Mpu_Get */
-void Mpu_Get(void const * argument)
+void Mpu_Get(void const *argument)
 {
   /* USER CODE BEGIN Mpu_Get */
   /* Infinite loop */
   for (;;)
   {
-    mpu_dmp_get_data(&mpu_pitch, &mpu_roll, &mpu_yaw);
-    MPU_Get_Gyroscope(&mpu_gx, &mpu_gy, &mpu_gz);
-    printf("pitch %f, roll = %f, yaw = %f\r\n", mpu_pitch, mpu_roll, mpu_yaw);
+    mpu_dmp_get_data(&MpuStruct.mpu_pitch, &MpuStruct.mpu_roll, &MpuStruct.mpu_yaw);
+    MPU_Get_Gyroscope(&MpuStruct.mpu_gx, &MpuStruct.mpu_gy, &MpuStruct.mpu_gz);
+    // printf("pitch %f, roll = %f, yaw = %f\r\n", mpu_pitch, mpu_roll, mpu_yaw);
+    xQueueSend(QueueMpuYawHandler, (uint8_t *)&MpuStruct.mpu_yaw, 0);
+    xQueueSend(QueueMpuPitchHandler, (uint8_t *)&MpuStruct.mpu_pitch, 0);
     vTaskDelay(1);
   }
   /* USER CODE END Mpu_Get */
@@ -369,7 +472,7 @@ void Mpu_Get(void const * argument)
  * @retval None
  */
 /* USER CODE END Header_FrictionWheel_Control */
-void FrictionWheel_Control(void const * argument)
+void FrictionWheel_Control(void const *argument)
 {
   /* USER CODE BEGIN FrictionWheel_Control */
   TickType_t xLastWakeTime;
@@ -403,18 +506,49 @@ void FrictionWheel_Control(void const * argument)
 
 /* USER CODE BEGIN Header_dial_control */
 /**
-* @brief Function implementing the Dial_Task thread.
-* @param argument: Not used
-* @retval None
-*/
+ * @brief Function implementing the Dial_Task thread.
+ * @param argument: Not used
+ * @retval None
+ */
 /* USER CODE END Header_dial_control */
-void dial_control(void const * argument)
+void dial_control(void const *argument)
 {
   /* USER CODE BEGIN dial_control */
+  dialStruct.TxID = 0x1FF;
+  dialStruct.TxLength = 8;
+  dialStruct.RxLength = 8;
+
+  TickType_t xLastWakeTime;
+  xLastWakeTime = xTaskGetTickCount(); // 定义类型，使用vTaskDelayUntil
+
+  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING); // 使能can接收中断
+
+  PID_Init(&dialStruct.pid_two.inner, 30, 0, 0, 0, 25000); // 初始化内环参�?
+  PID_Init(&dialStruct.pid_two.outer, 70, 0, 0, 0, 25000); // 初始化外环参�?
   /* Infinite loop */
-  for(;;)
+  for (;;)
   {
-    osDelay(1);
+    dialStruct.encoder = (RxData[0] << 8) | RxData[1];
+    dialStruct.Angle = dialStruct.encoder * 360.0f / 8192.0f;
+    dialStruct.Speed = (RxData[2] << 8) | RxData[3];
+
+    dialStruct.outerFeedback = dialStruct.Angle;
+
+    dialStruct.innerFeedback = dialStruct.Speed;                                                                      // 获取内环反馈�?
+    PID_CascadeCalc(&dialStruct.pid_two, dialStruct.outerTarget, dialStruct.outerFeedback, dialStruct.innerFeedback); // 进行PID计算
+
+    TxData[0] = (((int16_t)dialStruct.pid_two.output) >> 8) & 0xff; // 右移八位是因�?16位数据只有后面八位可以存�?8位的数组
+    TxData[1] = ((int16_t)dialStruct.pid_two.output) & 0xff;
+
+    CAN1_Transmit(dialStruct.TxID, dialStruct.TxLength, dialStruct.TxData);
+
+    // tx_data.data[0] = outerFeedback;
+    // tx_data.data[1] = outerTarget;
+    // tx_data.data[2] = pid_two.output / 100.0f;
+
+    // xQueueSend(QueueHandler, (uint8_t *)&tx_data, 0);
+
+    vTaskDelayUntil(&xLastWakeTime, 1); // 延时
   }
   /* USER CODE END dial_control */
 }
