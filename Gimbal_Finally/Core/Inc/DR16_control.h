@@ -26,12 +26,12 @@ typedef __packed struct
 {
     __packed struct
     {
-        uint16_t ch0;
-        uint16_t ch1;
-        uint16_t ch2;
-        uint16_t ch3;
-        uint8_t s1;
-        uint8_t s2;
+        int16_t ch0;
+        int16_t ch1;
+        int16_t ch2;
+        int16_t ch3;
+        int8_t s1;
+        int8_t s2;
     } rc;
     __packed struct 
     {

@@ -27,7 +27,7 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "stm32f4xx.h"
 /* USER CODE END Includes */
 
 /* Exported types ------------------------------------------------------------*/
@@ -58,7 +58,7 @@ void TIM1_BRK_TIM9_IRQHandler(void);
 void USART2_IRQHandler(void);
 void CAN2_RX0_IRQHandler(void);
 /* USER CODE BEGIN EFP */
-
+void HAL_UART_IdleCpltCallback(UART_HandleTypeDef *huart);
 /* USER CODE END EFP */
 
 #ifdef __cplusplus

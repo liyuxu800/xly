@@ -14,7 +14,7 @@ void CAN1_Receive(CAN_RxHeaderTypeDef *rceStu, uint8_t *Data);
 void CAN2_Transmit(uint32_t ID, uint8_t Length, uint8_t *Data);
 void CAN2_Receive(CAN_RxHeaderTypeDef *rceStu, uint8_t *Data);
 void HAL_CAN_RxFifo0GetDataCallback(CAN_HandleTypeDef *hcan,CAN_RxHeaderTypeDef rceStu,uint8_t *Data);
-void Can2_Receive_Judgment(uint16_t tagetID, uint8_t *receivedata);
-void Can1_Receive_Judgment(uint16_t tagetID, uint8_t *receivedata);
+uint8_t Can2_Receive_Judgment(uint16_t tagetID, uint8_t *receivedata);
+uint8_t Can1_Receive_Judgment(uint16_t tagetID, uint8_t *receivedata);
 
 #endif
