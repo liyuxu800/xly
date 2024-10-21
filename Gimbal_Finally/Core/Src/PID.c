@@ -3,7 +3,8 @@
 
 // PID pid_one = {0};
 // CascadePID pid_two = {0}; //创建串级PID结构体变�?
-// AngleStructDef angle_update = {0};
+AngleStructDef angle_update_yaw = {0};
+encoderStructDef angle_update_dial = {0};
 
 // 用于初始化pid参数的函�?
 void PID_Init(PID *pid, float p, float i, float d, float maxI, float maxOut)
@@ -57,7 +58,7 @@ void PID_CascadeCalc(CascadePID *pid, float outerRef, float outerFdb, float inne
   pid->output = pid->inner.output;                    // 内环输出就是串级PID的输�?
 }
 
-void updata_angle(AngleStructDef *__angle, uint16_t new_encoder)
+void updata_angle_dial(encoderStructDef *__angle, uint16_t new_encoder)
 {
   __angle->last_encoder = __angle->encoder; // 上一次刻度值等于当前刻度值
   __angle->encoder = new_encoder;
@@ -73,6 +74,22 @@ void updata_angle(AngleStructDef *__angle, uint16_t new_encoder)
   __angle->finally_angle = __angle->round * 360; // 如果大于4096，则为反转，圈数减一
 }
 
+void updata_angle_yaw(AngleStructDef *__angle, uint16_t new_angle)
+{
+  __angle->last_angle = __angle->angle; // 上一次角度等于当前角度
+  __angle->angle = new_angle;
+  float resulte = __angle->angle - __angle->last_angle; // 做差
+  if (resulte < -180)
+  {
+    __angle->round++; // 如果小于-4096，则为正转，圈数加一
+  }
+  else if (resulte > 180)
+  {
+    __angle->round--;
+  }
+  __angle->finally_angle = __angle->round * 360; // 如果大于4096，则为反转，圈数减一
+}
+
 float emaFilter(float input, float *prev_ema, float alpha) // ema滤波
 {
   // 计算新的 EMA �?
@@ -82,7 +99,7 @@ float emaFilter(float input, float *prev_ema, float alpha) // ema滤波
 
 float PID_One_Calculation(PID *pid_one, float targetvalue, uint8_t *receivedata)
 {
-  float speed = 0;
+  int16_t speed = 0;
   float feedbackvalue = 0;
 
   speed = (receivedata[2] << 8) | receivedata[3];

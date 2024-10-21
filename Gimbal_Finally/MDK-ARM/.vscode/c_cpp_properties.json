@@ -16,8 +16,7 @@
                 "d:\\git_one\\Gimbal_Finally\\Core\\Src",
                 "d:\\git_one\\Gimbal_Finally\\Drivers\\STM32F4xx_HAL_Driver\\Src",
                 "d:\\git_one\\Gimbal_Finally\\Middlewares\\Third_Party\\FreeRTOS\\Source",
-                "d:\\git_one\\Gimbal_Finally\\Middlewares\\Third_Party\\FreeRTOS\\Source\\portable\\MemMang",
-                "d:\\git_one\\Gimbal_Finally\\Hareware"
+                "d:\\git_one\\Gimbal_Finally\\Middlewares\\Third_Party\\FreeRTOS\\Source\\portable\\MemMang"
             ],
             "defines": [
                 "USE_HAL_DRIVER",

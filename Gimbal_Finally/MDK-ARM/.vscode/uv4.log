@@ -1,16 +1,2 @@
-*** Using Compiler 'V5.06 update 7 (build 960)', folder: 'D:\sofeware\ARM_MDK\ARM\ARM_Compiler_5.06u7\Bin'
-Build target 'Gimbal_Finally'
-assembling startup_stm32f405xx.s...
-compiling mycan.c...
-compiling freertos.c...
-../Core/Src/freertos.c(184): error:  #20: identifier "myBinarySem01Handle" is undefined
-      if (xSemaphoreTake(myBinarySem01Handle, 100) == pdTRUE)
-../Core/Src/freertos.c(190): error:  #20: identifier "RxBuffer" is undefined
-        RemoteDataProcess((uint8_t *)RxBuffer);
-../Core/Src/freertos.c(196): error:  #20: identifier "QueueSemaYawHandler" is undefined
-      xQueueSend(QueueSemaYawHandler, &RC_CtrlData, 0);
-../Core/Src/freertos.c: 0 warnings, 3 errors
-compiling main.c...
-"Gimbal_Finally\Gimbal_Finally.axf" - 3 Error(s), 0 Warning(s).
-Target not created.
-Build Time Elapsed:  00:00:02
+Load "Gimbal_Finally\\Gimbal_Finally.axf" 
+Erase Done.Programming Done.Verify OK.Flash Load finished at 09:09:34

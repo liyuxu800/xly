@@ -2,6 +2,8 @@
 #include "mycan.h"
 #include "stdio.h"
 
+#include "motor_drive.h"
+
 extern CAN_HandleTypeDef hcan1;
 extern CAN_HandleTypeDef hcan2;
 
@@ -122,23 +124,30 @@ void CAN2_Receive(CAN_RxHeaderTypeDef *rceStu, uint8_t *Data)
 			{
 				Data[i] = data[i];
 			}
-//			 printf("rceStu.DLC: %d\r\n",rceStu.DLC);
-//			 printf("rceStu.ExtId: %d\r\n",rceStu.ExtId);
-//			 printf("rceStu.StdId: %x\r\n",rceStu.StdId);
-//			 printf("rceStu.Timestamp: %d\r\n",rceStu.Timestamp);
+			//			 printf("rceStu.DLC: %d\r\n",rceStu.DLC);
+			//			 printf("rceStu.ExtId: %d\r\n",rceStu.ExtId);
+			//			 printf("rceStu.StdId: %x\r\n",rceStu.StdId);
+			//			 printf("rceStu.Timestamp: %d\r\n",rceStu.Timestamp);
 		}
 	}
 }
 
-void HAL_CAN_RxFifo0GetDataCallback(CAN_HandleTypeDef *hcan,CAN_RxHeaderTypeDef rceStu,uint8_t *Data)
+void HAL_CAN_RxFifo0GetDataCallback(CAN_HandleTypeDef *hcan, CAN_RxHeaderTypeDef rceStu, uint8_t *Data)
 {
 	if (hcan->Instance == hcan1.Instance)
 	{
 		CAN1_Receive(&rceStu_can1_fifo0, Data_can1_fifo0);
+
+		Can1_Receive_Judgment(0x206, pitchStruct.RxData);
+		Can1_Receive_Judgment(0x201, dialStruct.RxData);
+		Can1_Receive_Judgment(0x202, FWStruct.RxData_R);
+		Can1_Receive_Judgment(0x203, FWStruct.RxData_L);
 	}
 	if (hcan->Instance == hcan2.Instance)
 	{
 		CAN2_Receive(&rceStu_can2_fifo0, Data_can2_fifo0);
+
+		Can2_Receive_Judgment(0x209, YawStruct.RxData);
 	}
 }
 

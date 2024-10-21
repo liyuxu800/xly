@@ -1,5 +1,7 @@
 {
     "files.associations": {
-        "dr16_control.h": "c"
+        "dr16_control.h": "c",
+        "calculation.h": "c",
+        "motor_drive.h": "c"
     }
 }

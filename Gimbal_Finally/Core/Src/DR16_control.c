@@ -4,7 +4,6 @@
 volatile unsigned char sbus_rx_buffer[2][RC_FRAME_LENGTH]; // double sbus rx buffer to save data
 RC_Ctl_t RC_CtrlData;
 
-
 /******************************************************************************
  * @fn      RemoteDataProcess
  *
@@ -13,10 +12,10 @@ RC_Ctl_t RC_CtrlData;
  * @return  None.
  * @note    RC_CtrlData is a global variable.you can deal with it in other place.
  */
- 
+
 void RemoteDataProcess(uint8_t *pData) // 用于解析数据，pData指向接收缓冲区的指针，存储了从遥控器接收到的数据
 {
-    if (pData == NULL) 
+    if (pData == NULL)
     {
         return;
     }
@@ -39,9 +38,12 @@ void RemoteDataProcess(uint8_t *pData) // 用于解析数据，pData指向接收
     RC_CtrlData.mouse.press_l = pData[12];
     RC_CtrlData.mouse.press_r = pData[13];
 
-    RC_CtrlData.key.v = ((int16_t)pData[14]); // | ((int16_t)pData[15] << 8);
+    RC_CtrlData.key.v = ((int16_t)pData[14]) | ((int16_t)pData[15] << 8);
 
-    
+    RC_CtrlData.rc.ch0 -= RC_CH_VALUE_OFFSET;
+    RC_CtrlData.rc.ch1 -= RC_CH_VALUE_OFFSET;
+    RC_CtrlData.rc.ch2 -= RC_CH_VALUE_OFFSET;
+    RC_CtrlData.rc.ch3 -= RC_CH_VALUE_OFFSET;
 }
 
 /******************************************************************************/
