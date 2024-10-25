@@ -210,13 +210,13 @@ void CAN_Transmit(void const *argument)
   {
 
     //      		//发�?�左摩擦�??
-    //          CAN1_Transmit(FWStruct_TxID_L, Transmit_Length, FWStruct.TxData_L);
+    //    CAN1_Transmit(FWStruct_TxID_L, Transmit_Length, FWStruct.TxData_L);
     //    		//发�?�右摩擦�??
-    //       CAN1_Transmit(FWStruct_TxID_R, Transmit_Length, FWStruct.TxData_R);
+    //    CAN1_Transmit(FWStruct_TxID_R, Transmit_Length, FWStruct.TxData_R);
     //    // 发�?�dial
     //    CAN1_Transmit(dialStruct_TxID, Transmit_Length, dialStruct.TxData);
     //        		//yaw
-    //            CAN2_Transmit(YawStruct_TxID, Transmit_Length, YawStruct.TxData);
+    //    CAN2_Transmit(YawStruct_TxID, Transmit_Length, YawStruct.TxData);
     // 发�?�pitch
     CAN1_Transmit(pitchStruct_TxID, Transmit_Length, pitchStruct.TxData);
     //
