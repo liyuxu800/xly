@@ -52,19 +52,15 @@ extern volatile unsigned char sbus_rx_buffer[2][RC_FRAME_LENGTH];
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-#define LENGTH 100 // 宏定�???
-/* USER CODE END PD */
+#define LENGTH 100 // 宏定
+                   /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 // mpu
-typedef struct
-{
-  float mpu_pitch, mpu_roll, mpu_yaw;
-  float mpu_gx, mpu_gy, mpu_gz;
-} MpuStructDef;
-MpuStructDef MpuStruct = {0};
-MpuStructDef MpuStructReceive = {0};
+
+float mpu_pitch, mpu_roll, mpu_yaw;
+float mpu_gx, mpu_gy, mpu_gz;
 
 // DMA
 uint8_t RxBuffer[LENGTH];
@@ -87,24 +83,39 @@ int16_t Speed_yaw;
 uint32_t RxID_yaw = {0};
 uint8_t RxLength_yaw = 8;
 uint8_t RxData_yaw[8];
-// yaw_Queue_Receive
-float yaw_Queue_Receive = 0;
+// yaw_RC_CtrlData
+RC_Ctl_t RC_CtrlData_yaw;
 
-// FrictionWheel_pid
-PID pid_FrictionWheel_one = {0};
-// FrictionWheel_Tx
-uint32_t TxID_FrictionWheel = 0x1FF;
-uint8_t TxLength_FrictionWheel = 8;
-uint8_t TxData_FrictionWheel[8] = {0};
-// FrictionWheel_pid
-float feedbackValue_FrictionWheel;
-float feedbackValue1_FrictionWheel;
-float targetValue_FrictionWheel = 0;
-int16_t Speed_FrictionWheel;
-// FrictionWheel_Rx
-uint32_t RxID_FrictionWheel; // 接受�?
-uint8_t RxLength_FrictionWheel = 8;
-uint8_t RxData_FrictionWheel[8];
+// FrictionWheel_pid_L
+PID pid_FrictionWheel_one_L = {0};
+// FrictionWheel_Tx_L
+uint32_t TxID_FrictionWheel_L = 0x200;
+uint8_t TxLength_FrictionWheel_L = 8;
+uint8_t TxData_FrictionWheel_L[8] = {0};
+// FrictionWheel_pid_L
+float feedbackValue_FrictionWheel_L;
+float feedbackValue1_FrictionWheel_L;
+float targetValue_FrictionWheel_L = 0;
+int16_t Speed_FrictionWheel_L;
+// FrictionWheel_Rx_L
+uint32_t RxID_FrictionWheel_L; // 接受�?
+uint8_t RxLength_FrictionWheel_L = 8;
+uint8_t RxData_FrictionWheel_L[8];
+// FrictionWheel_pid_R
+PID pid_FrictionWheel_one_R = {0};
+// FrictionWheel_Tx_R
+uint32_t TxID_FrictionWheel_R = 0x200;
+uint8_t TxLength_FrictionWheel_R = 8;
+uint8_t TxData_FrictionWheel_R[8] = {0};
+// FrictionWheel_pid_R
+float feedbackValue_FrictionWheel_R;
+float feedbackValue1_FrictionWheel_R;
+float targetValue_FrictionWheel_R = 0;
+int16_t Speed_FrictionWheel_R;
+// FrictionWheel_Rx_R
+uint32_t RxID_FrictionWheel_R; // 接受�?
+uint8_t RxLength_FrictionWheel_R = 8;
+uint8_t RxData_FrictionWheel_R[8];
 
 // pitch
 typedef struct
@@ -127,8 +138,6 @@ typedef struct
   // pitch_Measurement
   uint16_t encoder;
   float Angle;
-  // Pitch_Queue_Receive
-  float Pitch_Queue_Receive;
 } pitchStructDef;
 pitchStructDef pitchStruct = {0};
 
@@ -160,10 +169,10 @@ dialStructDef dialStruct = {0};
 float alpha = 0.05;
 
 // 队列
-QueueHandle_t QueueHandler;
+QueueHandle_t QueueSemaYawHandler;
 QueueHandle_t QueueprintHandler;
-QueueHandle_t QueueMpuYawHandler;
-QueueHandle_t QueueMpuPitchHandler;
+// QueueHandle_t QueueMpuYawHandler;
+// QueueHandle_t QueueMpuPitchHandler;
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -240,10 +249,10 @@ void MX_FREERTOS_Init(void)
 
   /* USER CODE BEGIN RTOS_QUEUES */
   /* add queues, ... */
-  QueueHandler = xQueueCreate(20, 20);
+  QueueSemaYawHandler = xQueueCreate(20, 20);
   QueueprintHandler = xQueueCreate(8, 4); // 创建队列
-  QueueMpuYawHandler = xQueueCreate(4, 4);
-  QueueMpuPitchHandler = xQueueCreate(4, 4);
+  // QueueMpuYawHandler = xQueueCreate(4, 4);
+  // QueueMpuPitchHandler = xQueueCreate(4, 4);
   /* USER CODE END RTOS_QUEUES */
 
   /* Create the thread(s) */
@@ -309,7 +318,7 @@ void Semaphore(void const *argument)
     {
       memset(&RC_CtrlData, 0, sizeof(RC_CtrlData));
     }
-    xQueueSend(QueueHandler, &RC_CtrlData, 0);
+    xQueueSend(QueueSemaYawHandler, &RC_CtrlData, 0);
 
     vTaskDelay(1);
   }
@@ -329,19 +338,16 @@ void yaw_control(void const *argument)
   TickType_t xLastWakeTime;
   xLastWakeTime = xTaskGetTickCount();
 
-  xQueueReceive(QueueMpuYawHandler, (uint8_t *)&yaw_Queue_Receive, 0);
-
-  HAL_CAN_ActivateNotification(&hcan2, CAN_IT_RX_FIFO0_MSG_PENDING); // 使能can接收中断
-
   PID_Init(&pid_yaw_one, 3, 1, 5, 500, 800); // 初始化pid
 
   float prev_ema = 0; // 初始 EMA �???????
   /* Infinite loop */
   for (;;)
   {
-    xQueueReceive(QueueHandler, &RC_CtrlData, 0);
+    xQueueReceive(QueueSemaYawHandler, &RC_CtrlData_yaw, 0); // 接收来自信号量任务的目标值
+    // xQueueReceive(QueueMpuYawHandler, (uint8_t *)&yaw_Queue_Receive, 0);    //当前的yaw值
 
-    targetValue_yaw = RC_CtrlData.rc.ch0; // 遥控值等于目标�??
+    targetValue_yaw = RC_CtrlData_yaw.rc.ch0; // 遥控值等于目标�??
 
     Speed_yaw = (RxData[2] << 8) | RxData[3]; // 读取实际速度
 
@@ -400,16 +406,14 @@ void print_task(void const *argument)
 void pitch_control(void const *argument)
 {
   /* USER CODE BEGIN pitch_control */
-  pitchStruct.TxID = 0x1FF;           //发送ID
+  pitchStruct.TxID = 0x1FF; // 发送ID
   pitchStruct.TxLength = 8;
   pitchStruct.RxLength = 8;
 
-  xQueueReceive(QueueMpuPitchHandler, (uint8_t *)&pitchStruct.Pitch_Queue_Receive, 0);  //接收pitch值队列
+  // xQueueReceive(QueueMpuPitchHandler, (uint8_t *)&pitchStruct.Pitch_Queue_Receive, 0); // 接收pitch值队列
 
   TickType_t xLastWakeTime;
   xLastWakeTime = xTaskGetTickCount(); // 定义类型，使用vTaskDelayUntil
-
-  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING); // 使能can接收中断
 
   PID_Init(&pitchStruct.pid_two.inner, 30, 0, 0, 0, 25000); // 初始化内环参�?
   PID_Init(&pitchStruct.pid_two.outer, 70, 0, 0, 0, 25000); // 初始化外环参�?
@@ -455,11 +459,11 @@ void Mpu_Get(void const *argument)
   /* Infinite loop */
   for (;;)
   {
-    mpu_dmp_get_data(&MpuStruct.mpu_pitch, &MpuStruct.mpu_roll, &MpuStruct.mpu_yaw);
-    MPU_Get_Gyroscope(&MpuStruct.mpu_gx, &MpuStruct.mpu_gy, &MpuStruct.mpu_gz);
+    mpu_dmp_get_data(&mpu_pitch, &mpu_roll, &mpu_yaw);
+    MPU_Get_Gyroscope(&mpu_gx, &mpu_gy, &mpu_gz);
     // printf("pitch %f, roll = %f, yaw = %f\r\n", mpu_pitch, mpu_roll, mpu_yaw);
-    xQueueSend(QueueMpuYawHandler, (uint8_t *)&MpuStruct.mpu_yaw, 0);
-    xQueueSend(QueueMpuPitchHandler, (uint8_t *)&MpuStruct.mpu_pitch, 0);
+    // xQueueSend(QueueMpuYawHandler, (uint8_t *)&MpuStruct.mpu_yaw, 0);
+    // xQueueSend(QueueMpuPitchHandler, (uint8_t *)&MpuStruct.mpu_pitch, 0);
     vTaskDelay(1);
   }
   /* USER CODE END Mpu_Get */
@@ -478,26 +482,46 @@ void FrictionWheel_Control(void const *argument)
   TickType_t xLastWakeTime;
   xLastWakeTime = xTaskGetTickCount();
 
-  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING); // 使能can接收中断
-
-  PID_Init(&pid_FrictionWheel_one, 3, 1, 5, 20000, 15000);
+  PID_Init(&pid_FrictionWheel_one_L, 3, 1, 5, 20000, 15000);
+  PID_Init(&pid_FrictionWheel_one_R, 3, 1, 5, 20000, 15000);
   /* Infinite loop */
   for (;;)
   {
-    Speed_FrictionWheel = (RxData[2] << 8) | RxData[3];
+    if (rceStu_can1_fifo0.StdId == 0x203)
+    {
+      for (uint8_t i = 0; i <= 8; i++)
+      {
+        RxData_FrictionWheel_L[i] = Data_can1_fifo0[i];
+      }
+    }
+    if (rceStu_can1_fifo0.StdId == 0x202)
+    {
+      for (uint8_t i = 0; i <= 8; i++)
+      {
+        RxData_FrictionWheel_R[i] = Data_can1_fifo0[i];
+      }
+    }
 
-    feedbackValue_FrictionWheel = Speed_FrictionWheel; // 这里获取到被控对象的反馈�?
+    Speed_FrictionWheel_L = (RxData_FrictionWheel_L[2] << 8) | RxData_FrictionWheel_L[3]; // 左摩擦轮实际速度
+    Speed_FrictionWheel_R = (RxData_FrictionWheel_R[2] << 8) | RxData_FrictionWheel_R[3]; // 右摩擦轮实际速度
 
-    float ema_result = emaFilter(feedbackValue_FrictionWheel, &prev_ema, alpha);
+    feedbackValue_FrictionWheel_L = Speed_FrictionWheel_L; // 这里获取到被控对象的反馈�?
+    feedbackValue_FrictionWheel_R = Speed_FrictionWheel_R; // 这里获取到被控对象的反馈�?
 
-    PID_Calc(&pid_FrictionWheel_one, targetValue_FrictionWheel, ema_result); // 进行PID计算，结果在output成员变量
+    // float ema_result = emaFilter(feedbackValue_FrictionWheel, &prev_ema, alpha);
 
-    TxData[0] = (((int16_t)pid_FrictionWheel_one.output) >> 8) & 0xff; // 右移八位是因�?16位数据只有后面八位可以存�?8位的数组
-    TxData[1] = ((int16_t)pid_FrictionWheel_one.output) & 0xff;
+    PID_Calc(&pid_FrictionWheel_one_L, targetValue_FrictionWheel_L, feedbackValue_FrictionWheel_L); // 进行PID计算，结果在output成员变量
+    PID_Calc(&pid_FrictionWheel_one_R, targetValue_FrictionWheel_R, feedbackValue_FrictionWheel_R); // 进行PID计算，结果在output成员变量
 
-    CAN1_Transmit(TxID_FrictionWheel, TxLength_FrictionWheel, TxData_FrictionWheel);
+    TxData_FrictionWheel_L[4] = (((int16_t)pid_FrictionWheel_one_L.output) >> 8) & 0xff; // 右移八位是因�?16位数据只有后面八位可以存�?8位的数组
+    TxData_FrictionWheel_L[5] = ((int16_t)pid_FrictionWheel_one_L.output) & 0xff;
+    TxData_FrictionWheel_R[2] = (((int16_t)pid_FrictionWheel_one_R.output) >> 8) & 0xff; // 右移八位是因�?16位数据只有后面八位可以存�?8位的数组
+    TxData_FrictionWheel_R[3] = ((int16_t)pid_FrictionWheel_one_R.output) & 0xff;
 
-    xQueueSend(QueueHandler, (uint8_t *)(void *)(&ema_result), 0);
+    CAN1_Transmit(TxID_FrictionWheel_L, TxLength_FrictionWheel_L, TxData_FrictionWheel_L);
+    CAN1_Transmit(TxID_FrictionWheel_R, TxLength_FrictionWheel_R, TxData_FrictionWheel_R);
+
+    // xQueueSend(QueueHandler, (uint8_t *)(void *)(&ema_result), 0);
 
     vTaskDelayUntil(&xLastWakeTime, 1); // 延时
   }
@@ -520,8 +544,6 @@ void dial_control(void const *argument)
 
   TickType_t xLastWakeTime;
   xLastWakeTime = xTaskGetTickCount(); // 定义类型，使用vTaskDelayUntil
-
-  HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING); // 使能can接收中断
 
   PID_Init(&dialStruct.pid_two.inner, 30, 0, 0, 0, 25000); // 初始化内环参�?
   PID_Init(&dialStruct.pid_two.outer, 70, 0, 0, 0, 25000); // 初始化外环参�?

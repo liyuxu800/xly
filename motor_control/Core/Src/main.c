@@ -23,6 +23,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "stdio.h"
+#include "mycan.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -42,6 +43,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 CAN_HandleTypeDef hcan1;
+CAN_HandleTypeDef hcan2;
 
 UART_HandleTypeDef huart1;
 
@@ -57,6 +59,7 @@ void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_CAN1_Init(void);
 static void MX_USART1_UART_Init(void);
+static void MX_CAN2_Init(void);
 void StartDefaultTask(void const * argument);
 void StartTask02(void const * argument);
 void StartTask03(void const * argument);
@@ -67,95 +70,6 @@ void StartTask03(void const * argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-void FilterInit(void)
-{
-	CAN_FilterTypeDef CAN_FilterInitStructure;
-	CAN_FilterInitStructure.FilterActivation = ENABLE;
-	CAN_FilterInitStructure.FilterBank = 0;
-	CAN_FilterInitStructure.FilterFIFOAssignment = CAN_FILTER_FIFO0;
-	CAN_FilterInitStructure.FilterIdHigh =0x0000;
-	CAN_FilterInitStructure.FilterIdLow = 0x0000;
-	CAN_FilterInitStructure.FilterMaskIdHigh = 0x0000;
-	CAN_FilterInitStructure.FilterMaskIdLow = 0x0000;
-	CAN_FilterInitStructure.FilterMode = CAN_FILTERMODE_IDMASK;
-	CAN_FilterInitStructure.FilterScale = CAN_FILTERSCALE_32BIT;
-	CAN_FilterInitStructure.SlaveStartFilterBank = 0;
-	HAL_CAN_ConfigFilter(&hcan1,&CAN_FilterInitStructure);
-	
-	 if(HAL_CAN_ConfigFilter(&hcan1, &CAN_FilterInitStructure) != HAL_OK)
-    {
-      printf("CAN1 ConfigFilter Fail!!\r\n");
-    }
-    else
-    {
-      printf("CAN1 ConfigFilter SUCCESS!!\r\n");
-    }
-}
-
-void CAN1_Transmit(uint32_t ID, uint8_t Length, uint8_t *Data)
-{
-	CAN_TxHeaderTypeDef TxMessage = {0};
-	uint8_t Tx_Buffer[8] = {0};
-	uint32_t box = 0;
-	TxMessage.StdId = ID;
-	TxMessage.ExtId = ID;
-	TxMessage.IDE = CAN_ID_STD;
-	TxMessage.RTR = CAN_RTR_DATA;
-	TxMessage.DLC = Length;
-	TxMessage.TransmitGlobalTime = DISABLE;
-	for (uint8_t i = 0; i < Length; i ++)
-	{
-		Tx_Buffer[i] = Data[i];
-	}
-	HAL_StatusTypeDef TransmitMailbox;
-	TransmitMailbox = HAL_CAN_AddTxMessage(&hcan1,&TxMessage,Tx_Buffer,&box);
-	if(TransmitMailbox != HAL_OK )
-	{
-		printf("Transmit Error!");
-	}
-	else
-	{
-		//printf("Transmit Success!\r\n");
-	}
-}
-
-uint8_t CAN1_ReceiveFlag(void)
-{
-	if (HAL_CAN_GetRxFifoFillLevel(&hcan1, CAN_RX_FIFO0) != 0)
-	{
-		printf("CAN1 has some Message");
-		return 1;
-	}
-	return 0;
-}
-
-void CAN1_Receive(uint32_t *ID, uint8_t *Length, uint8_t *Data)
-{
-//		FilterInit();
-	
-		CAN_RxHeaderTypeDef rceStu = {0};
-		if(CAN1_ReceiveFlag() != 0)
-		{
-		if(HAL_CAN_GetRxMessage(&hcan1, CAN_RX_FIFO0, &rceStu, Data)==HAL_OK)
-		{
-    printf("rceStu.DLC: %d\r\n",rceStu.DLC);
-    printf("rceStu.ExtId: %d\r\n",rceStu.ExtId);
-    printf("rceStu.StdId: %x\r\n",rceStu.StdId);
-    printf("rceStu.Timestamp: %d\r\n",rceStu.Timestamp);
-		for(uint8_t i = 0;i<rceStu.DLC;i++)
-    {
-      printf(" %x",Data[i]);
-		}
-     printf("\r\n");
-		}
-		}
-		else
-		{
-			printf("No CAN1 INFO!\r\n");
-		}
-		osDelay(1000);
-}
-
 int fputc(int ch, FILE *f)            
 {
 	HAL_UART_Transmit(&huart1,(uint8_t *)&ch,1,HAL_MAX_DELAY);
@@ -200,6 +114,7 @@ int main(void)
   MX_GPIO_Init();
   MX_CAN1_Init();
   MX_USART1_UART_Init();
+  MX_CAN2_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -268,13 +183,12 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
-  RCC_OscInitStruct.HSIState = RCC_HSI_ON;
-  RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
-  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 8;
-  RCC_OscInitStruct.PLL.PLLN = 168;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLM = 25;
+  RCC_OscInitStruct.PLL.PLLN = 336;
   RCC_OscInitStruct.PLL.PLLP = RCC_PLLP_DIV2;
   RCC_OscInitStruct.PLL.PLLQ = 4;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
@@ -335,6 +249,43 @@ static void MX_CAN1_Init(void)
 }
 
 /**
+  * @brief CAN2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_CAN2_Init(void)
+{
+
+  /* USER CODE BEGIN CAN2_Init 0 */
+
+  /* USER CODE END CAN2_Init 0 */
+
+  /* USER CODE BEGIN CAN2_Init 1 */
+
+  /* USER CODE END CAN2_Init 1 */
+  hcan2.Instance = CAN2;
+  hcan2.Init.Prescaler = 6;
+  hcan2.Init.Mode = CAN_MODE_NORMAL;
+  hcan2.Init.SyncJumpWidth = CAN_SJW_1TQ;
+  hcan2.Init.TimeSeg1 = CAN_BS1_4TQ;
+  hcan2.Init.TimeSeg2 = CAN_BS2_2TQ;
+  hcan2.Init.TimeTriggeredMode = DISABLE;
+  hcan2.Init.AutoBusOff = DISABLE;
+  hcan2.Init.AutoWakeUp = DISABLE;
+  hcan2.Init.AutoRetransmission = DISABLE;
+  hcan2.Init.ReceiveFifoLocked = DISABLE;
+  hcan2.Init.TransmitFifoPriority = DISABLE;
+  if (HAL_CAN_Init(&hcan2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN CAN2_Init 2 */
+
+  /* USER CODE END CAN2_Init 2 */
+
+}
+
+/**
   * @brief USART1 Initialization Function
   * @param None
   * @retval None
@@ -380,6 +331,7 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOH_CLK_ENABLE();
+  __HAL_RCC_GPIOB_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
 
 /* USER CODE BEGIN MX_GPIO_Init_2 */
@@ -422,12 +374,12 @@ void StartDefaultTask(void const * argument)
 void StartTask02(void const * argument)
 {
   /* USER CODE BEGIN StartTask02 */
-		HAL_CAN_Start(&hcan1);
+		HAL_CAN_Start(&hcan2);
 	
 		FilterInit();
 	
-//		int16_t i = 0;
-		uint32_t TxID = 0x1FF;
+//	int16_t i = 0;
+		uint32_t TxID = 0x2FF;
 		uint8_t TxLength = 8;
 		uint8_t TxData[8];
 	
@@ -441,7 +393,7 @@ void StartTask02(void const * argument)
   for(;;)
   {
 
-	CAN1_Transmit(TxID,TxLength,TxData);
+	CAN2_Transmit(TxID,TxLength,TxData);
 	osDelay(5);  
   }
   /* USER CODE END StartTask02 */
@@ -454,19 +406,23 @@ void StartTask02(void const * argument)
 * @retval None
 */
 /* USER CODE END Header_StartTask03 */
-
 void StartTask03(void const * argument)
 {
   /* USER CODE BEGIN StartTask03 */
 		uint32_t RxID;
 		uint8_t RxLength;
 		uint8_t RxData[8];
-		
+	
 
+		HAL_CAN_ActivateNotification(&hcan2, CAN_IT_RX_FIFO0_MSG_PENDING);
   /* Infinite loop */
   for(;;)
   {
-		CAN1_Receive(&RxID, &RxLength, RxData);
+		for(uint16_t i = 0; i <= 8 ;  i++)
+		{
+			RxData[i] = Data_can2_fifo0[i];
+		}
+		Can2_Receive_Judgment(0x209,RxData);
 		
 		Angel_first  = (RxData[0] << 8) | RxData[1];
 		Speed = (RxData[2] << 8) | RxData[3];

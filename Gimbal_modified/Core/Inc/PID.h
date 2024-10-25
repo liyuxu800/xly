@@ -34,5 +34,7 @@ void PID_Calc(PID *pid, float reference, float feedback);
 void PID_CascadeCalc(CascadePID *pid, float outerRef, float outerFdb, float innerFdb);
 void updata_angle(AngleStructDef *__angle,uint16_t new_encoder);
 float emaFilter(float input, float *prev_ema, float alpha);
+float PID_One_Calculation(PID *pid_one, float targetvalue, uint8_t *receivedata);
+float PID_Two_Calculation(CascadePID *pid_two, float outtargetvalue, uint8_t *receivedata);
 
 #endif

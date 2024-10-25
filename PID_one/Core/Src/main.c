@@ -36,11 +36,11 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-float feedbackValue;
+float feedbackValue;				//pid
 float feedbackValue1;
 float targetValue = 111;
 
-uint32_t RxID;
+uint32_t RxID;							//接受值
 uint8_t RxLength = 8;
 uint8_t RxData[8];
 
@@ -348,8 +348,8 @@ void StartDefaultTask(void const *argument)
 void StartTask02(void const *argument)
 {
   /* USER CODE BEGIN StartTask02 */
-	    TickType_t xLastWakeTime;
-    xLastWakeTime = xTaskGetTickCount();
+	TickType_t xLastWakeTime;
+	xLastWakeTime = xTaskGetTickCount();
 
 	
   uint32_t TxID = 0x1FF;

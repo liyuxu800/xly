@@ -3,6 +3,9 @@
         "cmsis_os.h": "c",
         "freertos.h": "c",
         "mpu6050.h": "c",
-        "inv_mpu.h": "c"
+        "inv_mpu.h": "c",
+        "stm32f4xx_hal.h": "c",
+        "stm32f4xx.h": "c",
+        "can.h": "c"
     }
 }

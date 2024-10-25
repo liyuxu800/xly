@@ -50,3 +50,14 @@ float emaFilter(float input, float *prev_ema, float alpha)	//ema滤波
   *prev_ema = alpha * input + (1.0f - alpha) * (*prev_ema);
   return *prev_ema;
 }
+
+float PID_One_Calculation(PID *pid_one, float targetvalue, uint8_t *receivedata)
+{
+  float speed = 0;
+  float feedbackvalue = 0;
+
+  speed = (receivedata[2] << 8) | receivedata[3];
+  feedbackvalue = speed;
+  PID_Calc(pid_one, targetvalue, feedbackvalue);
+	return speed;
+}

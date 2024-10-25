@@ -13,5 +13,6 @@ extern PID mypid;
 void PID_Init(PID *pid, float p, float i, float d, float maxI, float maxOut);
 void PID_Calc(PID *pid, float reference, float feedback);
 float emaFilter(float input, float *prev_ema, float alpha);
+float PID_One_Calculation(PID *pid_one, float targetvalue, uint8_t *receivedata);
 
 #endif

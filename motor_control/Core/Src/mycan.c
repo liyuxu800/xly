@@ -135,7 +135,7 @@ void HAL_CAN_RxFifo0GetDataCallback(CAN_HandleTypeDef *hcan,CAN_RxHeaderTypeDef 
 	if (hcan->Instance == hcan1.Instance)
 	{
 		CAN1_Receive(&rceStu_can1_fifo0, Data_can1_fifo0);
-		HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
+		//HAL_CAN_ActivateNotification(&hcan1, CAN_IT_RX_FIFO0_MSG_PENDING);
 	}
 	if (hcan->Instance == hcan2.Instance)
 	{
@@ -144,7 +144,7 @@ void HAL_CAN_RxFifo0GetDataCallback(CAN_HandleTypeDef *hcan,CAN_RxHeaderTypeDef 
 	}
 }
 
-void Can2_Receive_Judgment(uint16_t tagetID, uint8_t *receivedata)
+uint8_t Can2_Receive_Judgment(uint16_t tagetID, uint8_t *receivedata)
 {
 	if (rceStu_can2_fifo0.StdId == tagetID)
 	{
@@ -152,5 +152,10 @@ void Can2_Receive_Judgment(uint16_t tagetID, uint8_t *receivedata)
 		{
 			receivedata[i] = Data_can2_fifo0[i];
 		}
+		return 1;
+	}
+	else
+	{
+		return 0;
 	}
 }

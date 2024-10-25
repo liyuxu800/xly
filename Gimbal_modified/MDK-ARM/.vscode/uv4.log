@@ -1,49 +1,54 @@
 *** Using Compiler 'V5.06 update 7 (build 960)', folder: 'D:\sofeware\ARM_MDK\ARM\ARM_Compiler_5.06u7\Bin'
 Build target 'Gimbal'
+compiling PID.c...
+..\Core\Src\PID.c(90): error:  #167: argument of type "PID **" is incompatible with parameter of type "PID *"
+    PID_Calc(&pid_one,targetvalue,feedbackvalue);
+..\Core\Src\PID.c: 0 warnings, 1 error
+compiling mycan.c...
+compiling stm32f4xx_it.c...
 compiling freertos.c...
-../Core/Src/freertos.c(338): error:  #20: identifier "RxData" is undefined
+../Core/Src/freertos.c(352): error:  #20: identifier "RxData" is undefined
       Speed_yaw = (RxData[2] << 8) | RxData[3]; // 读取实际速度
-../Core/Src/freertos.c(410): error:  #20: identifier "RxData" is undefined
+../Core/Src/freertos.c(413): error:  #20: identifier "QueueMpuPitchHandler" is undefined
+    xQueueReceive(QueueMpuPitchHandler, (uint8_t *)&pitchStruct.Pitch_Queue_Receive, 0); // 接收pitch值队�?
+../Core/Src/freertos.c(413): error:  #136: struct "<unnamed>"  has no field "Pitch_Queue_Receive"
+    xQueueReceive(QueueMpuPitchHandler, (uint8_t *)&pitchStruct.Pitch_Queue_Receive, 0); // 接收pitch值队�?
+../Core/Src/freertos.c(424): error:  #20: identifier "RxData" is undefined
       pitchStruct.encoder = (RxData[0] << 8) | RxData[1];
-../Core/Src/freertos.c(414): error:  #136: struct "<unnamed>"  has no field "outerFeedback"
+../Core/Src/freertos.c(428): error:  #136: struct "<unnamed>"  has no field "outerFeedback"
       pitchStruct.outerFeedback = pitchStruct.Angle;
-../Core/Src/freertos.c(416): error:  #136: struct "<unnamed>"  has no field "innerFeedback"
+../Core/Src/freertos.c(430): error:  #136: struct "<unnamed>"  has no field "innerFeedback"
       pitchStruct.innerFeedback = pitchStruct.Speed;                                                                        // 获取内环反馈�??
-../Core/Src/freertos.c(417): error:  #136: struct "<unnamed>"  has no field "outerTarget"
+../Core/Src/freertos.c(431): error:  #136: struct "<unnamed>"  has no field "outerTarget"
       PID_CascadeCalc(&pitchStruct.pid_two, pitchStruct.outerTarget, pitchStruct.outerFeedback, pitchStruct.innerFeedback); // 进行PID计算
-../Core/Src/freertos.c(417): error:  #136: struct "<unnamed>"  has no field "outerFeedback"
+../Core/Src/freertos.c(431): error:  #136: struct "<unnamed>"  has no field "outerFeedback"
       PID_CascadeCalc(&pitchStruct.pid_two, pitchStruct.outerTarget, pitchStruct.outerFeedback, pitchStruct.innerFeedback); // 进行PID计算
-../Core/Src/freertos.c(417): error:  #136: struct "<unnamed>"  has no field "innerFeedback"
+../Core/Src/freertos.c(431): error:  #136: struct "<unnamed>"  has no field "innerFeedback"
       PID_CascadeCalc(&pitchStruct.pid_two, pitchStruct.outerTarget, pitchStruct.outerFeedback, pitchStruct.innerFeedback); // 进行PID计算
-../Core/Src/freertos.c(419): error:  #20: identifier "TxData" is undefined
+../Core/Src/freertos.c(433): error:  #20: identifier "TxData" is undefined
       TxData[0] = (((int16_t)pid_two.output) >> 8) & 0xff; // 右移八位是因�??16位数据只有后面八位可以存�??8位的数组
-../Core/Src/freertos.c(419): error:  #20: identifier "pid_two" is undefined
+../Core/Src/freertos.c(433): error:  #20: identifier "pid_two" is undefined
       TxData[0] = (((int16_t)pid_two.output) >> 8) & 0xff; // 右移八位是因�??16位数据只有后面八位可以存�??8位的数组
-../Core/Src/freertos.c(422): error:  #136: struct "<unnamed>"  has no field "TxData"
+../Core/Src/freertos.c(436): error:  #136: struct "<unnamed>"  has no field "TxData"
       CAN1_Transmit(pitchStruct.TxID, pitchStruct.TxLength, pitchStruct.TxData);
-../Core/Src/freertos.c(476): error:  #20: identifier "RxData" is undefined
-      Speed_FrictionWheel = (RxData[2] << 8) | RxData[3];
-../Core/Src/freertos.c(480): error:  #20: identifier "prev_ema" is undefined
-      float ema_result = emaFilter(feedbackValue_FrictionWheel, &prev_ema, alpha);
-../Core/Src/freertos.c(484): error:  #20: identifier "TxData" is undefined
-      TxData[0] = (((int16_t)pid_FrictionWheel_one.output) >> 8) & 0xff; // 右移八位是因�??16位数据只有后面八位可以存�??8位的数组
-../Core/Src/freertos.c(520): error:  #20: identifier "RxData" is undefined
+../Core/Src/freertos.c(553): error:  #20: identifier "RxData" is undefined
       dialStruct.encoder = (RxData[0] << 8) | RxData[1];
-../Core/Src/freertos.c(524): error:  #136: struct "<unnamed>"  has no field "outerFeedback"
+../Core/Src/freertos.c(557): error:  #136: struct "<unnamed>"  has no field "outerFeedback"
       dialStruct.outerFeedback = dialStruct.Angle;
-../Core/Src/freertos.c(526): error:  #136: struct "<unnamed>"  has no field "innerFeedback"
+../Core/Src/freertos.c(559): error:  #136: struct "<unnamed>"  has no field "innerFeedback"
       dialStruct.innerFeedback = dialStruct.Speed;                                                                      // 获取内环反馈�??
-../Core/Src/freertos.c(527): error:  #136: struct "<unnamed>"  has no field "outerTarget"
+../Core/Src/freertos.c(560): error:  #136: struct "<unnamed>"  has no field "outerTarget"
       PID_CascadeCalc(&dialStruct.pid_two, dialStruct.outerTarget, dialStruct.outerFeedback, dialStruct.innerFeedback); // 进行PID计算
-../Core/Src/freertos.c(527): error:  #136: struct "<unnamed>"  has no field "outerFeedback"
+../Core/Src/freertos.c(560): error:  #136: struct "<unnamed>"  has no field "outerFeedback"
       PID_CascadeCalc(&dialStruct.pid_two, dialStruct.outerTarget, dialStruct.outerFeedback, dialStruct.innerFeedback); // 进行PID计算
-../Core/Src/freertos.c(527): error:  #136: struct "<unnamed>"  has no field "innerFeedback"
+../Core/Src/freertos.c(560): error:  #136: struct "<unnamed>"  has no field "innerFeedback"
       PID_CascadeCalc(&dialStruct.pid_two, dialStruct.outerTarget, dialStruct.outerFeedback, dialStruct.innerFeedback); // 进行PID计算
-../Core/Src/freertos.c(529): error:  #20: identifier "TxData" is undefined
+../Core/Src/freertos.c(562): error:  #20: identifier "TxData" is undefined
       TxData[0] = (((int16_t)dialStruct.pid_two.output) >> 8) & 0xff; // 右移八位是因�??16位数据只有后面八位可以存�??8位的数组
-../Core/Src/freertos.c(532): error:  #136: struct "<unnamed>"  has no field "TxData"
+../Core/Src/freertos.c(565): error:  #136: struct "<unnamed>"  has no field "TxData"
       CAN1_Transmit(dialStruct.TxID, dialStruct.TxLength, dialStruct.TxData);
-../Core/Src/freertos.c: 0 warnings, 21 errors
+../Core/Src/freertos.c: 0 warnings, 20 errors
+compiling main.c...
 "DR16\DR16.axf" - 21 Error(s), 0 Warning(s).
 Target not created.
 Build Time Elapsed:  00:00:02

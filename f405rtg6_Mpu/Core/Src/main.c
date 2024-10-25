@@ -311,6 +311,7 @@ void StartTask02(void const * argument)
 		mpu_dmp_get_data(&mpu_pitch,&mpu_roll,&mpu_yaw);
 		MPU_Get_Gyroscope(&mpu_gx,&mpu_gy,&mpu_gz);		
 		printf("pitch %f, roll = %f, yaw = %f\r\n",mpu_pitch,mpu_roll ,mpu_yaw);
+		printf("mpu_gx%f, mpu_gy = %f, mpu_gz = %f\r\n",mpu_gx,mpu_gy ,mpu_gz);
 		
     osDelay(1);
   }

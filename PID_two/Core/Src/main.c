@@ -41,7 +41,7 @@
 /* Private macro -------------------------------------------------------------*/
 /* USER CODE BEGIN PM */
 float targetValue =111;
-float outerTarget = 0;
+float outerTarget = 111;
 float outerFeedback = 0;
 float innerFeedback = 0;
 
@@ -75,6 +75,101 @@ void StartTask03(void const * argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+
+typedef struct
+{
+   	float kp, ki, kd; //三个系数
+    float error, lastError; //误差、上次误�?
+    float integral, maxIntegral; //积分、积分限�?
+    float output, maxOutput; //输出、输出限�?
+}PID;
+PID pid_one = {0};
+
+//串级PID的结构体，包含两个单级PID
+typedef struct
+{
+    PID inner; //内环
+    PID outer; //外环
+    float output; //串级输出，等于inner.output
+}CascadePID;
+CascadePID pid_two = {0}; //创建串级PID结构体变�?
+
+typedef struct
+{
+  uint16_t encoder,last_encoder;		//当前刻度值和上一次的刻度值
+
+  float finally_angle;		//最终旋转的角度
+}AngleStructDef;
+AngleStructDef angle_update = {0};
+
+
+//用于初始化pid参数的函�?
+void PID_Init(PID *pid, float p, float i, float d, float maxI, float maxOut)
+{
+    pid->kp = p;
+    pid->ki = i;
+    pid->kd = d;
+    pid->maxIntegral = maxI;
+    pid->maxOutput = maxOut;
+}
+ 
+//进行�?次pid计算
+//参数�?(pid结构�?,目标�?,反馈�?)，计算结果放在pid结构体的output成员成员�?
+void PID_Calc(PID *pid, float reference, float feedback)
+{
+ 	//更新数据
+    pid->lastError = pid->error; //将旧error存起�?
+    pid->error = reference - feedback; //计算新error
+    //计算微分
+    static float dout;
+		dout = (pid->error - pid->lastError) * pid->kd;
+    //计算比例
+    static float pout;
+		pout	= pid->error * pid->kp;
+    //计算积分
+    pid->integral += pid->error;
+	  static float iout;
+		iout = pid->integral* pid->ki;
+    //积分限幅
+    if(pid->integral > pid->maxIntegral) pid->integral = pid->maxIntegral;
+    else if(pid->integral < -pid->maxIntegral) pid->integral = -pid->maxIntegral;
+    //计算输出
+    pid->output = pout + dout + iout;
+    //输出限幅
+    if(pid->output > pid->maxOutput) pid->output =   pid->maxOutput;
+    else if(pid->output < -pid->maxOutput) pid->output = -pid->maxOutput;
+}
+
+
+//串级PID的结构体，包含两个单级PID
+
+//串级PID的计算函�?
+//参数(PID结构�?,外环目标�?,外环反馈�?,内环反馈�?)
+void PID_CascadeCalc(CascadePID *pid, float outerRef, float outerFdb, float innerFdb)
+{
+    PID_Calc(&pid->outer, outerRef, outerFdb); //计算外环
+    PID_Calc(&pid->inner, pid->outer.output, innerFdb); //计算内环
+    pid->output = pid->inner.output; //内环输出就是串级PID的输�?
+}
+
+void updata_angle(AngleStructDef *__angle,uint16_t new_encoder)
+{
+	static  int16_t round;					//储存旋转的圈数
+	
+  __angle->last_encoder = __angle->encoder;		//上一次刻度值等于当前刻度值
+  __angle->encoder = new_encoder;
+  float resulte =  __angle->encoder - __angle->last_encoder;	//做差
+  if(resulte < -4096)
+  {
+     round ++;		//如果小于-4096，则为正转，圈数加一
+  }
+  else if(resulte >4096)
+  {
+     round --;
+  }
+  __angle->finally_angle = round *360;		//如果大于4096，则为反转，圈数减一
+}
+
 typedef struct
 {
 	float data[3];
@@ -440,8 +535,8 @@ void StartTask02(void const * argument)
 	
 	FilterInit();
 
-	PID_Init(&mypid.inner, 30, 0, 0, 0, 25000); //初始化内环参�?
-  PID_Init(&mypid.outer, 70, 0, 0, 0, 25000); //初始化外环参�?
+	PID_Init(&pid_two.inner, 30, 0, 0, 0, 25000); //初始化内环参�?
+  PID_Init(&pid_two.outer, 70, 0, 0, 0, 25000); //初始化外环参�?
 
 	uint32_t TxID = 0x1FF;
 	uint8_t TxLength = 8;
@@ -452,9 +547,9 @@ void StartTask02(void const * argument)
 	uint8_t RxData[8];
 	
 	uint16_t encoder;
-	static float Angle;
+	float Angle;
 	int16_t Speed;
-
+	//float outerFeedback;
   /* Infinite loop */
   for(;;)
   {
@@ -468,16 +563,16 @@ void StartTask02(void const * argument)
     outerFeedback = Angle + (float)angle_update.finally_angle; //获取外环反馈�?
 
     innerFeedback = Speed; //获取内环反馈�?
-    PID_CascadeCalc(&mypid, outerTarget, outerFeedback, innerFeedback); //进行PID计算
+    PID_CascadeCalc(&pid_two, outerTarget, outerFeedback, innerFeedback); //进行PID计算
 		
-		TxData[0] = (((int16_t)mypid.output) >> 8) & 0xff;				//右移八位是因�?16位数据只有后面八位可以存�?8位的数组
-		TxData[1] = ((int16_t)mypid.output) & 0xff;
+		TxData[0] = (((int16_t)pid_two.output) >> 8) & 0xff;				//右移八位是因�?16位数据只有后面八位可以存�?8位的数组
+		TxData[1] = ((int16_t)pid_two.output) & 0xff;
 
 		CAN1_Transmit(TxID,TxLength,TxData);
 
 		tx_data.data[0] = outerFeedback;
-		tx_data.data[1] = outerTarget;
-		tx_data.data[2] = mypid.output / 100.0f;
+		tx_data.data[1] = targetValue;
+		tx_data.data[2] = pid_two.output / 100.0f;
 		
     xQueueSend(QueueHandler, (uint8_t*)&tx_data, 0);
 
