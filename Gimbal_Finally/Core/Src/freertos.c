@@ -215,7 +215,7 @@ void CAN_Transmit(void const *argument)
     //    CAN1_Transmit(FWStruct_TxID_R, Transmit_Length, FWStruct.TxData_R);
     //    // 发�?�dial
     //    CAN1_Transmit(dialStruct_TxID, Transmit_Length, dialStruct.TxData);
-    //        		//yaw
+    //      	//yaw
     //    CAN2_Transmit(YawStruct_TxID, Transmit_Length, YawStruct.TxData);
     // 发�?�pitch
     CAN1_Transmit(pitchStruct_TxID, Transmit_Length, pitchStruct.TxData);
