@@ -60,34 +60,38 @@ void PID_CascadeCalc(CascadePID *pid, float outerRef, float outerFdb, float inne
 
 void updata_angle_dial(encoderStructDef *__angle, uint16_t new_encoder)
 {
+  static int32_t round; // 储存旋转的圈数
+
   __angle->last_encoder = __angle->encoder; // 上一次刻度值等于当前刻度值
   __angle->encoder = new_encoder;
   float resulte = __angle->encoder - __angle->last_encoder; // 做差
   if (resulte < -4096)
   {
-    __angle->round++; // 如果小于-4096，则为正转，圈数加一
+    round++; // 如果小于-4096，则为正转，圈数加一
   }
   else if (resulte > 4096)
   {
-    __angle->round--;
+    round--;
   }
-  __angle->finally_angle = __angle->round * 360; // 如果大于4096，则为反转，圈数减一
+  __angle->finally_angle = round * 360; // 如果大于4096，则为反转，圈数减一
 }
 
 void updata_angle_yaw(AngleStructDef *__angle, uint16_t new_angle)
 {
+  static int32_t round; // 储存旋转的圈数
+
   __angle->last_angle = __angle->angle; // 上一次角度等于当前角度
   __angle->angle = new_angle;
   float resulte = __angle->angle - __angle->last_angle; // 做差
   if (resulte < -180)
   {
-    __angle->round++; // 如果小于-4096，则为正转，圈数加一
+    round++; // 如果小于-4096，则为正转，圈数加一
   }
   else if (resulte > 180)
   {
-    __angle->round--;
+    round--;
   }
-  __angle->finally_angle = __angle->round * 360; // 如果大于4096，则为反转，圈数减一
+  __angle->finally_angle = round * 360; // 如果大于4096，则为反转，圈数减一
 }
 
 float emaFilter(float input, float *prev_ema, float alpha) // ema滤波

@@ -20,8 +20,9 @@
 
 // mpu
 extern float mpu_pitch, mpu_roll, mpu_yaw;
+extern float gx, gy, gz;
 
-//数据包
+// 数据包
 extern uint8_t FW_dial_TxData[];
 
 // yaw
@@ -32,7 +33,7 @@ typedef struct
   // yaw_Tx
   uint8_t TxData[8];
   // yaw_pid
-  int16_t Speed;
+  float Speed;
   float outerTarget;
   float outerFeedback;
   float innerFeedback;
@@ -79,7 +80,6 @@ typedef struct
   float outerTarget;
   float outerFeedback;
   float innerFeedback;
-
   // pitch_Rx
   uint8_t RxData[8];
   // pitch_Measurement

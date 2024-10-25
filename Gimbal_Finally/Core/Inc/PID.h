@@ -21,19 +21,18 @@ typedef struct
 } CascadePID;
 // extern CascadePID pid_two;
 
-typedef struct  //定义一个结构体类型，实现720°旋转
+typedef struct // 定义一个结构体类型，实现720°旋转
 {
-  uint16_t encoder,last_encoder;		//当前刻度值和上一次的刻度值
-  int16_t round;					//储存旋转的圈数
-  int16_t finally_angle;		//最终旋转的角度
-}encoderStructDef;
- extern encoderStructDef angle_update_dial;
+  uint16_t encoder, last_encoder; // 当前刻度值和上一次的刻度值
+  float finally_angle;            // 最终旋转的角度
+} encoderStructDef;
+extern encoderStructDef angle_update_dial;
 
 typedef struct // 定义一个结构体类型，实现720°旋转
 {
   uint16_t angle, last_angle; // 当前刻度值和上一次的刻度值
-  int16_t round;              // 储存旋转的圈数
-  int16_t finally_angle;      // 最终旋转的角度
+
+  float finally_angle; // 最终旋转的角度
 } AngleStructDef;
 extern AngleStructDef angle_update_yaw;
 
